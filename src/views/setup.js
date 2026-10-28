@@ -64,6 +64,9 @@ function Details({ w, save }) {
           <option value="simulated">Simulated (no AI API)</option>
         </select>
       <//>
+      <${Field} label="Voting" hint="By default the organizer facilitates and doesn't vote. Turn this on to get dots like everyone else in every voting step.">
+        <label class="toggle"><input type="checkbox" checked=${!!(w.step_state || {}).organizer_votes} onChange=${(e) => backend.setStepState(w.id, { organizer_votes: e.target.checked })} /> Organizer votes too</label>
+      <//>
       <div class="span-2"><${Field} label="Goal" hint="One or two sentences on what we want to leave with. Shown in the introduction and the invite email.">
         <${SaveOnBlur} multiline value=${w.description} onSave=${(description) => save({ description })} />
       <//></div>

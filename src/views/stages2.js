@@ -2,7 +2,7 @@
 import { html, useState, useEffect, useRef, useMemo, cx, DECIDER_PURPLE } from '../lib.js';
 import { backend } from '../backend/index.js';
 import { Avatar, Empty, AiButton } from './ui.js';
-import { QUADRANTS, quadrantOf, placeGrid, tally, synthVotes, aiDecide, DECIDER_WEIGHT } from '../ai.js';
+import { QUADRANTS, quadrantOf, placeGrid, tally, synthVotes, aiDecide, DECIDER_WEIGHT, canMemberVote } from '../ai.js';
 
 const QUAD_ORDER = ['quick', 'big', 'fill', 'pit'];
 const clampPct = (n) => Math.max(0, Math.min(100, n));
@@ -116,7 +116,7 @@ export function VoteHmwStage({ w, data, me, isOrganizer }) {
   const revealed = !!st.vote_reveal;
   const final = st.hmw_final;
   const decider = data.members.find((m) => m.is_decider);
-  const canVote = me && me.role !== 'organizer';
+  const canVote = canMemberVote(w, me);
   const isDecider = me && me.is_decider;
   const votes = data.votes.filter((v) => v.round === 'hmw');
   const mine = me ? votes.filter((v) => v.member_id === me.id) : [];

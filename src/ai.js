@@ -75,6 +75,9 @@ export async function placeGrid(w, hmws) {
   return placements.length;
 }
 
+// Who gets dots: everyone but the organizer, unless the workshop lets the organizer vote too.
+export const canMemberVote = (w, me) => !!me && (me.role !== 'organizer' || !!(w.step_state || {}).organizer_votes);
+
 // Weighted tally: the Decider's dots count double.
 export const DECIDER_WEIGHT = 2;
 export function tallyItems(items, votes, members) {

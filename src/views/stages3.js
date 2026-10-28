@@ -3,7 +3,7 @@
 import { html, useState, useEffect, useMemo, cx, uid, DECIDER_PURPLE } from '../lib.js';
 import { backend } from '../backend/index.js';
 import { Avatar, Empty, AiButton, Modal, useCopy } from './ui.js';
-import { tallyItems, DECIDER_WEIGHT, synthCrazy8, synthSketchVotes, synthSolutions, synthComments, aiDecideSolution } from '../ai.js';
+import { tallyItems, DECIDER_WEIGHT, canMemberVote, synthCrazy8, synthSketchVotes, synthSolutions, synthComments, aiDecideSolution } from '../ai.js';
 
 const IMAGE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/svg+xml': 'svg' };
 const MAX_FRAMES = 6;
@@ -192,7 +192,7 @@ export function Share8Stage({ w, data, me, isOrganizer }) {
   const votes = data.votes.filter((v) => v.round === 'crazy8');
   const mine = me ? votes.filter((v) => v.member_id === me.id) : [];
   const left = dots - mine.length;
-  const canVote = me && me.role !== 'organizer' && left > 0;
+  const canVote = canMemberVote(w, me) && left > 0;
   const decider = data.members.find((m) => m.is_decider);
   const cells = allCrazyCells(data.sheets);
   const ranked = tallyItems(cells, votes, data.members).filter((r) => r.dots > 0);
@@ -206,7 +206,7 @@ export function Share8Stage({ w, data, me, isOrganizer }) {
       <${ChosenHmw} w=${w} data=${data} />
       <div class="row between stage-head">
         <div><h3>Sharing: ${authors[spotId]?.name || ''} ${local && html`<button class="btn btn-sm btn-primary" onClick=${() => setLocal(null)}>Back to presenter</button>`}</h3>
-          <${VoteHeader} left=${left} dots=${dots} canVote=${me && me.role !== 'organizer'} isDecider=${me?.is_decider} decider=${decider} what="a single sketch" /></div>
+          <${VoteHeader} left=${left} dots=${dots} canVote=${canMemberVote(w, me)} isDecider=${me?.is_decider} decider=${decider} what="a single sketch" /></div>
         ${isOrganizer && html`<${OrganizerVoteTools} w=${w} dotsKey="vote8_dots" revealKey="vote8_reveal" dots=${dots} revealed=${revealed} round="crazy8" votes=${votes}
           aiLabel="Cast AI participants' votes" aiRun=${data.members.some((m) => m.is_synthetic) ? async () => {
             const b = await synthSketchVotes(w, 'crazy8', cells.map((c) => ({ id: c.id, text: `${c.caption || 'Untitled sketch'} (by ${authors[c.member_id]?.name})`, image_paths: c.file_path ? [c.file_path] : [] })), data.members, dots);
@@ -370,7 +370,7 @@ export function VoteSolutionStage({ w, data, me, isOrganizer }) {
   const votes = data.votes.filter((v) => v.round === voteRound);
   const mine = me ? votes.filter((v) => v.member_id === me.id) : [];
   const left = dots - mine.length;
-  const canVote = me && me.role !== 'organizer';
+  const canVote = canMemberVote(w, me);
   const decider = data.members.find((m) => m.is_decider);
   const isDecider = me?.is_decider;
   const ranked = tallyItems(solutions, votes, data.members);
