@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Workshop — UX Review</title>
+<link rel="icon" href="logo.png" />
+<style>
+  @font-face{font-family:'OneStream Sans';src:url('fonts/OneStreamSans-Regular.otf') format('opentype');font-weight:400;font-style:normal;font-display:swap;}
+  @font-face{font-family:'OneStream Sans';src:url('fonts/OneStreamSans-Medium.otf') format('opentype');font-weight:500;font-style:normal;font-display:swap;}
+  @font-face{font-family:'OneStream Sans';src:url('fonts/OneStreamSans-Bold.otf') format('opentype');font-weight:700;font-style:normal;font-display:swap;}
+  :root{ --font:'OneStream Sans',Arial,Helvetica,sans-serif;
+         --brand:#0A5DFF; --brand-hover:#0847c9; --text:#141414; --muted:#6E6E6E; }
+  *{box-sizing:border-box;}
+  html,body{margin:0;min-height:100%;}
+  body{font-family:var(--font);color:var(--text);padding:56px 24px 64px;-webkit-font-smoothing:antialiased;
+    background:radial-gradient(1200px 620px at 50% -10%,#eef2fb 0%,#f4f5f8 55%,#eef0f4 100%);}
+  .wrap{max-width:1080px;margin:0 auto;}
+  .head{text-align:center;margin:0 0 36px;}
+  .head .logo{width:210px;max-width:70%;height:auto;display:block;margin:0 auto 22px;}
+  .head h1{font-size:28px;font-weight:700;letter-spacing:-.01em;margin:0 0 6px;}
+  .head .updated{font-size:14px;font-weight:400;color:var(--muted);margin:0;}
+  .tiles{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(230px,290px));justify-content:center;align-items:stretch;}
+  .tile{display:flex;flex-direction:column;background:#fff;border:1px solid #E6E6E6;border-radius:10px;
+    padding:24px;box-shadow:0 1px 2px rgba(20,30,60,.04);transition:box-shadow .15s ease,border-color .15s ease;}
+  .tile:hover{box-shadow:0 10px 28px rgba(20,30,60,.10);border-color:#Dadada;}
+  .tile-ic{height:30px;margin-bottom:14px;display:flex;align-items:center;color:var(--brand);}
+  .tile-ic svg{display:block;}
+  .tile h3{font-size:17px;font-weight:700;margin:0 0 10px;line-height:22px;}
+  .tag{align-self:flex-start;font-size:12px;font-weight:600;line-height:16px;padding:3px 9px;border-radius:4px;
+    background:#E8F5EE;color:#16794A;margin:0 0 14px;}
+  .tag.soon{background:#FDF1DC;color:#8A5A00;}
+  .desc{font-size:14px;line-height:20px;color:#5A5A5A;margin:0 0 20px;flex:1 1 auto;}
+  .btn-open{display:flex;align-items:center;justify-content:center;gap:7px;height:40px;border-radius:4px;
+    background:var(--brand);color:#fff;font-size:14px;font-weight:700;text-decoration:none;
+    font-family:inherit;cursor:pointer;transition:background .15s ease;}
+  .btn-open:hover{background:var(--brand-hover);}
+  .btn-open svg{width:15px;height:15px;}
+  .btn-open.disabled{background:#C9CDD6;pointer-events:none;cursor:default;}
+  .btn-copy{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;
+    height:30px;border:0;background:none;color:var(--muted);font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;}
+  .btn-copy:hover{color:var(--text);}
+  .btn-copy svg{width:15px;height:15px;}
+  .btn-copy.copied{color:#16794A;}
+  .foot{text-align:center;margin-top:40px;}
+  .signout{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;color:var(--muted);
+    text-decoration:none;padding:8px 14px;border-radius:6px;transition:color .15s ease,background .15s ease;}
+  .signout:hover{color:var(--text);background:rgba(20,30,60,.05);}
+  .signout svg{width:16px;height:16px;}
+  /* Admin-only: link back to the master UX portal (shown when role=editor) */
+  .backlink{display:none;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#0A5DFF;
+    text-decoration:none;padding:8px 14px;border-radius:6px;transition:background .15s ease;margin:0 auto 6px;}
+  .backlink:hover{background:rgba(10,93,255,.08);}
+  .backlink svg{width:16px;height:16px;}
+  .backlink.show{display:inline-flex;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <img class="logo" src="brandmark.svg" alt="OneStream" onerror="this.style.display='none'">
+      <h1 id="portal-title">UX Review Portal</h1>
+      <p class="updated">Last updated: <span id="updated"></span></p>
+    </div>
+    <div class="tiles" id="tiles"></div>
+    <div class="foot">
+      <div><a class="backlink" id="admin-back" href="https://portal-seven-sandy.vercel.app/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+        Back to main UX portal
+      </a></div>
+      <a class="signout" href="/api/logout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        Sign out
+      </a>
+    </div>
+  </div>
+<script>
+  /* ═══════════════════════════════════════════════════════════════════════════
+     CUSTOMIZE EVERYTHING BELOW — this is the only part you normally edit.
+     Each tile: { title, tag, desc, url, icon?, sameTab?, soon? }.  url can be an
+     external link or a path on this site (e.g. '/' for the prototype).  icon is
+     optional — omit it to use the default link icon.  Set soon:true for a
+     not-yet-live tile (amber tag + disabled button).  Add/remove tiles freely.
+     ═══════════════════════════════════════════════════════════════════════════ */
+  var PORTAL_TITLE = 'Workshop';
+  var LAST_UPDATED = 'October 28, 2026';   // shown under the title
+  // Official multicolor Figma logo (keeps its own brand colors).
+  var FIGMA_ICON = '<svg viewBox="0 0 38 57" width="19" height="28.5" xmlns="http://www.w3.org/2000/svg"><path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z" fill="#1ABCFE"/><path d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z" fill="#0ACF83"/><path d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19H19z" fill="#FF7262"/><path d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z" fill="#F24E1E"/><path d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z" fill="#A259FF"/></svg>';
+  var TILES = [
+    { title:'HTML Prototype',  tag:'Live', desc:'Interactive Workshop prototype.', url: location.origin + '/', sameTab:true },
+  ];
+  /* ═══════════════════════════════════════════════════════════════════════════ */
+
+  var LINK_ICON = '<svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M2.5 8h19"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>';
+  var OPEN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>';
+  var COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+  var CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+
+  document.getElementById('portal-title').textContent = PORTAL_TITLE;
+  document.title = PORTAL_TITLE + ' — UX Review';
+  document.getElementById('updated').textContent = LAST_UPDATED;
+
+  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+  var host = document.getElementById('tiles');
+  TILES.forEach(function(t){
+    var el = document.createElement('div');
+    el.className = 'tile';
+    var openBtn = t.soon
+      ? '<span class="btn-open disabled">Coming soon</span>'
+      : '<a class="btn-open" href="' + esc(t.url) + '"' + (t.sameTab ? '' : ' target="_blank" rel="noopener noreferrer"') + '>Open' + OPEN_ICON + '</a>';
+    el.innerHTML =
+      '<div class="tile-ic">' + (t.icon || LINK_ICON) + '</div>' +
+      '<h3>' + esc(t.title) + '</h3>' +
+      (t.tag ? '<span class="tag' + (t.soon ? ' soon' : '') + '">' + esc(t.tag) + '</span>' : '') +
+      '<p class="desc">' + esc(t.desc) + '</p>' +
+      openBtn +
+      (t.soon ? '' : '<button class="btn-copy" type="button" data-url="' + esc(t.url) + '">' + COPY_ICON + '<span>Copy link</span></button>');
+    host.appendChild(el);
+  });
+
+  host.addEventListener('click', function(e){
+    var btn = e.target.closest('.btn-copy'); if (!btn) return;
+    var url = btn.getAttribute('data-url'), label = btn.querySelector('span');
+    function done(){
+      btn.classList.add('copied'); btn.querySelector('svg').outerHTML = CHECK_ICON; label.textContent = 'Copied!';
+      setTimeout(function(){ btn.classList.remove('copied'); btn.querySelector('svg').outerHTML = COPY_ICON; label.textContent = 'Copy link'; }, 1600);
+    }
+    function fallback(){
+      var ta=document.createElement('textarea'); ta.value=url; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(_){} document.body.removeChild(ta); done();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done).catch(fallback);
+    else fallback();
+  });
+</script>
+<script>
+  /* Reveal the "Back to main UX portal" link only for admin/editor sessions. */
+  (function(){
+    var m = document.cookie.match(/(?:^|;\s*)(?:esg|lcm|o365|lim|workshop)_role=([^;]+)/);
+    if (m && m[1] === 'editor') { var el = document.getElementById('admin-back'); if (el) el.classList.add('show'); }
+  })();
+</script>
+</body>
+</html>
