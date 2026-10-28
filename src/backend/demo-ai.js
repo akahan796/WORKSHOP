@@ -31,6 +31,40 @@ const tasks = {
     };
   },
 
+  // Template demo content for a new workshop. With no topic it's the Account
+  // Reconciliations sample; otherwise the same story told about the topic.
+  demo_content(db, ws, body) {
+    const topic = String(body.topic || '').trim().replace(/\s+/g, ' ').replace(/[.!?]+$/, '');
+    const recon = !topic || /reconcil/i.test(topic);
+    const project = recon ? 'Account Reconciliations' : (topic.length > 48 ? topic.slice(0, 48).replace(/\s+\S*$/, '') : topic).replace(/^./, (c) => c.toUpperCase());
+    const users = recon ? 'preparers and reviewers' : 'the people who use it';
+    const team = [
+      ['Priya Shah', 'researcher', 'design'], ['Dana Lee', 'participant', 'design'], ['Marcus Chen', 'participant', 'pm', true],
+      ['Sofia Alvarez', 'participant', 'eng'], ['Tom Becker', 'participant', 'eng'], ['Hannah Wright', 'participant', 'design'],
+      ['Luis Romero', 'participant', 'pm'], ['Mei Tanaka', 'participant', 'eng'], ['Arjun Mehta', 'participant', 'design'],
+    ].slice(0, 1 + Math.max(2, Math.min(8, Number(body.participants) || 4)));
+    return {
+      title: `${project}: Discovery Workshop`,
+      project,
+      goal: `Find the biggest friction points ${users} hit in ${project}, and align on one direction to prototype.`,
+      background: recon
+        ? 'Account Reconciliations is used by preparers and reviewers during month-end close. Research shows reviewers spend a large share of close chasing status and supporting documentation across tools.'
+        : `${project} is a core part of the OneStream platform. Recent research shows ${users} lose time tracking status and switching between tools to finish routine work.`,
+      people: team.map(([name, role, discipline, dec]) => ({ name, email: name.toLowerCase().replace(' ', '.') + '@example.com', role, discipline, is_decider: !!dec })),
+      deck: {
+        title: `${project} research share-out`,
+        slides: [
+          { title: `${project}: what we learned`, bullets: ['UX research share-out', '12 interviews, 3 contextual inquiries, product analytics', 'Simulated demo content'] },
+          { title: 'Finding 1: status is hard to see', bullets: ['9 of 12 people track status in a spreadsheet on the side', '"I never know what is blocked until someone emails me."', 'No single view shows what needs attention first'] },
+          { title: 'Finding 2: work stalls on hand-offs', bullets: ['Hand-offs happen in email and chat, outside the product', 'Average wait for a reviewer response: 1.8 days', 'People screenshot screens to explain where they are stuck'] },
+          { title: 'Finding 3: supporting evidence lives elsewhere', bullets: ['Documents sit in shared drives, not next to the item', '7 of 12 re-upload the same files every period', 'Auditors ask for links the product cannot provide'] },
+          { title: 'Finding 4: large workloads slow everything down', bullets: ['Bulk actions time out on the largest workspaces', 'Power users avoid filters because they reset', 'Top 10% of users own 60% of the items'] },
+          { title: 'Summary', bullets: ['Make status and blockers visible at a glance', 'Keep hand-offs and evidence inside the product', 'Design for the heaviest workloads first'] },
+        ],
+      },
+    };
+  },
+
   synth_participants(db, ws, body) {
     const used = new Set(db.members.filter((m) => m.workshop_id === ws.id).map((m) => m.name));
     const disc = (body.disciplines && body.disciplines.length ? body.disciplines : ['design', 'pm', 'eng']);

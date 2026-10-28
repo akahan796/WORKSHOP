@@ -315,3 +315,13 @@ textarea { resize: vertical; }
   section { break-inside: avoid; }
 }
 @media (max-width: 900px) { .review-layout { flex-direction: column; } }
+
+/* New workshop modal */
+.choice-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.choice-card { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.choice-card.on { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+.choice-card input { align-self: flex-start; margin-bottom: 4px; }
+.stack-sm { display: flex; flex-direction: column; gap: 8px; }
+.check { display: flex; align-items: center; gap: 8px; }
+.row.end { justify-content: flex-end; }
+@media (max-width: 560px) { .choice-cards { grid-template-columns: 1fr; } }

@@ -55,6 +55,9 @@ async function addContributions(w, contributions, step, toStickies) {
   return n;
 }
 
+// Demo details, team and research deck for a new workshop ({ topic, participants }).
+export const demoContent = (w, body) => runAi(w, 'demo_content', body);
+
 export async function synthResearch(w) {
   const { contributions } = await runAi(w, 'synth_research', {});
   return addContributions(w, contributions, 'research', (c) => c.stickies.map((s) => ({ kind: s.kind, text: s.text })));

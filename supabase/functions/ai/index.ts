@@ -20,6 +20,7 @@
 //   generate_prototype  a clickable, self-contained HTML prototype of the flow
 //   revise_prototype    a new prototype version that addresses review feedback
 //   synth_feedback      AI participants' design review feedback
+//   demo_content        demo details, team and research deck for a new workshop on `topic`
 // synth_votes takes `round` ('hmw' | 'crazy8' | 'solution'); sketch rounds
 // send Claude the uploaded sketch images.
 //
@@ -221,6 +222,42 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
     const ids = new Set(items.map((i) => i.id));
     const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
     return { placements: (out.placements || []).filter((p: any) => ids.has(p.id)).map((p: any) => ({ ...p, impact: clamp(p.impact), effort: clamp(p.effort) })) };
+  },
+
+  async demo_content(sb, ws, body) {
+    const topic = String(body.topic || "").trim().slice(0, 1000) || "a OneStream finance product area of your choice";
+    const out = await callTool(
+      SYSTEM + " You create realistic demo content for a new workshop, so an organizer can show how the workshop runs.",
+      [{ type: "text", text: `Create demo content for a design-thinking workshop about: ${topic}\n\nGive: a workshop title; the project / product area (short); a one-sentence goal; a 2–3 sentence project background; a team of 1 UX researcher and ${Math.max(2, Math.min(8, Number(body.participants) || 4))} participants spread across design, pm (product management) and eng (engineering), with exactly one participant marked as the Decider (usually the PM); and a UX research share-out deck of 5–7 slides (title slide first, then findings with evidence, then a summary). Slide bullets are short (under 15 words), concrete, and cite realistic research evidence (interview counts, quotes, metrics). Names are realistic and varied; emails use @example.com.` }],
+      {
+        name: "create_demo",
+        description: "Create the demo workshop content.",
+        input_schema: {
+          type: "object", additionalProperties: false, required: ["title", "project", "goal", "background", "people", "deck"],
+          properties: {
+            title: { type: "string" }, project: { type: "string" }, goal: { type: "string" }, background: { type: "string" },
+            people: { type: "array", items: {
+              type: "object", additionalProperties: false, required: ["name", "email", "role", "discipline", "is_decider"],
+              properties: {
+                name: { type: "string" }, email: { type: "string" },
+                role: { type: "string", enum: ["researcher", "participant"] },
+                discipline: { type: "string", enum: ["design", "pm", "eng"] },
+                is_decider: { type: "boolean" },
+              },
+            } },
+            deck: {
+              type: "object", additionalProperties: false, required: ["title", "slides"],
+              properties: { title: { type: "string" }, slides: { type: "array", items: {
+                type: "object", additionalProperties: false, required: ["title", "bullets"],
+                properties: { title: { type: "string" }, bullets: { type: "array", items: { type: "string" } } },
+              } } },
+            },
+          },
+        },
+      },
+      8000, "low", body.__startedAt,
+    );
+    return out;
   },
 
   async synth_participants(sb, ws, body) {
