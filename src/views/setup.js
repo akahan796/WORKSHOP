@@ -4,7 +4,7 @@ import { backend } from '../backend/index.js';
 import { STEPS, BUILT_PHASE, defaultAgenda, defaultIntro } from '../steps.js';
 import { useWorkshop } from '../useWorkshop.js';
 import { Field, SaveOnBlur, Avatar, useCopy, Empty, Modal } from './ui.js';
-import { generateSynthetic } from '../ai.js';
+import { generateSynthetic, isSimulated } from '../ai.js';
 import { ResearchManager } from './research.js';
 
 const TABS = [['details', 'Details'], ['intro', 'Introduction'], ['agenda', 'Agenda'], ['people', 'People & invites'], ['research', 'Research']];
@@ -56,6 +56,12 @@ function Details({ w, save }) {
       <${Field} label="Project / subject" hint="What the workshop is about, e.g. the product area."><${SaveOnBlur} value=${w.project} onSave=${(project) => save({ project })} /><//>
       <${Field} label="Date & time">
         <input type="datetime-local" value=${toLocalInput(w.starts_at)} onChange=${(e) => save({ starts_at: e.target.value ? new Date(e.target.value).toISOString() : null })} />
+      <//>
+      <${Field} label="AI mode" hint=${backend.mode === 'demo' ? 'Demo mode always uses simulated AI.' : 'Simulated runs the full flow with built-in stand-in results: free, no AI API needed. Everything else stays live.'}>
+        <select disabled=${backend.mode === 'demo'} value=${isSimulated(w) ? 'simulated' : 'claude'} onChange=${(e) => backend.setStepState(w.id, { ai_mode: e.target.value })}>
+          <option value="claude">Claude (real AI)</option>
+          <option value="simulated">Simulated (no AI API)</option>
+        </select>
       <//>
       <div class="span-2"><${Field} label="Goal" hint="One or two sentences on what we want to leave with. Shown in the introduction and the invite email.">
         <${SaveOnBlur} multiline value=${w.description} onSave=${(description) => save({ description })} />
@@ -179,7 +185,7 @@ function SynthModal({ w, members, onClose }) {
         </div>
         <${Field} label="Guidance (optional)" hint="e.g. 'one skeptical senior engineer', 'a PM who owns the close process'"><textarea rows="2" value=${guidance} onInput=${(e) => setGuidance(e.target.value)}></textarea><//>
         ${error && html`<p class="error">${error}</p>`}
-        <div class="row between"><span class="muted small">${backend.mode === 'demo' ? 'Demo mode: built-in stand-in, no AI call.' : 'Uses Claude.'}</span>
+        <div class="row between"><span class="muted small">${isSimulated(w) ? 'Simulated AI: built-in stand-in, no API call.' : 'Uses Claude.'}</span>
           <button class="btn btn-primary" disabled=${busy || !disciplines.length || count < 1} onClick=${go}>${busy ? 'Generating…' : `Generate ${count}`}</button></div>
       </div>
     <//>`;

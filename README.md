@@ -62,6 +62,11 @@ never reaches the browser. Only a workshop's organizer can call it.
    right away, with no redeploy.
 
 Without these steps the app still works; the AI buttons show a "not set up" message.
+
+**Simulated AI (free, no API):** in Setup → Details, set **AI mode** to *Simulated*.
+Every AI button then uses the built-in stand-in instead of Claude, while the workshop
+itself stays fully live on Supabase (real sign-ins, invite links, sync). Good for
+rehearsals and demos, or when there are no API credits. Switch back to *Claude* any time.
 Add `?demo` to the URL (e.g. `http://localhost:4650/?demo`) to practice with a
 built-in stand-in for the AI and in-browser data.
 

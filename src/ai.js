@@ -3,6 +3,20 @@
 // workshop data, so everyone's screen updates live.
 import { backend } from './backend/index.js';
 import { nextColor, hmwText } from './lib.js';
+import { demoAi } from './backend/demo-ai.js';
+
+// Simulated AI: the built-in stand-in, no API call. Used in demo mode and for any
+// workshop whose AI mode is set to "simulated" (workshop data still lives in Supabase).
+export const isSimulated = (w) => backend.mode === 'demo' || (w.step_state || {}).ai_mode === 'simulated';
+
+async function runAi(w, task, body) {
+  if (!isSimulated(w)) {
+    try { return await backend.ai(task, { workshop_id: w.id, ...body }); }
+    catch (e) { throw new Error(e.message + ' Tip: to run without an AI API, set AI mode to Simulated in Setup → Details.'); }
+  }
+  const members = await backend.listMembers(w.id);
+  return demoAi({ workshops: [w], members }, task, { workshop_id: w.id, ...body });
+}
 
 export const QUADRANTS = {
   quick: { label: 'Quick win', hint: 'High impact · low effort' },
@@ -19,7 +33,7 @@ export function quadrantOf(grid) {
 }
 
 export async function generateSynthetic(w, members, { count, disciplines, guidance }) {
-  const { participants } = await backend.ai('synth_participants', { workshop_id: w.id, count, disciplines, guidance });
+  const { participants } = await runAi(w, 'synth_participants', { count, disciplines, guidance });
   const all = members.slice();
   for (const p of participants) {
     all.push(await backend.addMember(w.id, {
@@ -42,17 +56,17 @@ async function addContributions(w, contributions, step, toStickies) {
 }
 
 export async function synthResearch(w) {
-  const { contributions } = await backend.ai('synth_research', { workshop_id: w.id });
+  const { contributions } = await runAi(w, 'synth_research', {});
   return addContributions(w, contributions, 'research', (c) => c.stickies.map((s) => ({ kind: s.kind, text: s.text })));
 }
 
 export async function synthHmw(w) {
-  const { contributions } = await backend.ai('synth_hmw', { workshop_id: w.id });
+  const { contributions } = await runAi(w, 'synth_hmw', {});
   return addContributions(w, contributions, 'hmw', (c) => c.hmws.map((t) => ({ kind: 'hmw', text: hmwText(t) })));
 }
 
 export async function placeGrid(w, hmws) {
-  const { placements } = await backend.ai('place_grid', { workshop_id: w.id, items: hmws.map((s) => ({ id: s.id, text: s.text })) });
+  const { placements } = await runAi(w, 'place_grid', { items: hmws.map((s) => ({ id: s.id, text: s.text })) });
   const byId = Object.fromEntries(hmws.map((s) => [s.id, s]));
   for (const p of placements) {
     const s = byId[p.id];
@@ -74,8 +88,8 @@ export function tally(hmws, votes, members) {
 
 export async function synthVotes(w, hmws, members, dots) {
   const synthIds = members.filter((m) => m.is_synthetic).map((m) => m.id);
-  const candidates = hmws.map((s) => ({ id: s.id, text: s.text, quadrant: QUADRANTS[quadrantOf(s.data?.grid)]?.label }));
-  const { ballots } = await backend.ai('synth_votes', { workshop_id: w.id, dots, candidates });
+  const candidates = hmws.map((s) => ({ id: s.id, text: s.text, quadrant: QUADRANTS[quadrantOf(s.data?.grid)]?.label, impact: s.data?.grid?.y, effort: s.data?.grid?.x }));
+  const { ballots } = await runAi(w, 'synth_votes', { dots, candidates });
   await backend.deleteVotes(w.id, 'hmw', synthIds); // re-running replaces earlier AI votes
   const rows = [];
   for (const b of ballots) for (const v of b.votes) for (let i = 0; i < v.dots; i++) rows.push({ workshop_id: w.id, member_id: b.member_id, target_id: v.sticky_id, round: 'hmw' });
@@ -85,7 +99,7 @@ export async function synthVotes(w, hmws, members, dots) {
 
 export async function aiDecide(w, ranked) {
   const candidates = ranked.slice(0, 5).map((r) => ({ id: r.sticky.id, text: r.sticky.text, score: r.score, quadrant: QUADRANTS[quadrantOf(r.sticky.data?.grid)]?.label }));
-  const d = await backend.ai('decide_hmw', { workshop_id: w.id, candidates });
+  const d = await runAi(w, 'decide_hmw', { candidates });
   await backend.setDecision(w.id, 'hmw_final', { sticky_id: d.sticky_id, rationale: d.rationale, by: 'ai' });
   return d;
 }

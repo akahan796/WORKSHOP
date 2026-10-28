@@ -1,6 +1,7 @@
-// Demo-mode stand-in for the Claude edge function (supabase/functions/ai).
+// Simulated AI: a stand-in for the Claude edge function (supabase/functions/ai),
+// used in demo mode and by workshops set to "Simulated AI".
 // Same tasks and result shapes, produced by simple deterministic rules, so the
-// whole flow can be tried without an API key. Results are labeled as demo.
+// whole flow can be run without an AI API. Results are labeled as simulated.
 
 const DISC = { design: 'Product Design', pm: 'Product Management', eng: 'Engineering' };
 const NAMES = {
@@ -25,7 +26,7 @@ const tasks = {
         if (/status|one place|at a glance|block|know/.test(t)) impact += 15;
         if (/automat|integrat|ai|real-time|sync/.test(t)) effort += 15;
         impact = Math.min(95, Math.round(impact)); effort = Math.min(95, Math.round(effort));
-        return { id: i.id, impact, effort, rationale: `Demo placement (AI not connected): impact ${impact}, effort ${effort}.` };
+        return { id: i.id, impact, effort, rationale: `Simulated AI: impact ${impact}, effort ${effort}.` };
       }),
     };
   },
@@ -63,19 +64,17 @@ const tasks = {
     return { contributions: synth(db, ws).map((m) => ({ member_id: m.id, hmws: lines[m.discipline] || lines.pm })) };
   },
 
+  // Each persona favors high-impact, low-effort HMWs, with a little personal variation.
   synth_votes(db, ws, body) {
     const dots = body.dots || 3;
     const c = body.candidates || [];
+    const value = (m, x) => (x.impact ?? 40) - 0.5 * (x.effort ?? 50) + hash(m.id + x.id) * 25;
     return {
       ballots: synth(db, ws).map((m) => {
-        const ranked = c.slice().sort((a, b) => hash(m.id + b.id) - hash(m.id + a.id) + (b.quadrant === 'Quick win' ? 0.3 : 0) - (a.quadrant === 'Quick win' ? 0.3 : 0));
-        const votes = [];
-        for (let i = 0; i < dots && ranked.length; i++) {
-          const t = ranked[i % Math.min(2, ranked.length)];
-          const v = votes.find((x) => x.sticky_id === t.id);
-          if (v) v.dots++; else votes.push({ sticky_id: t.id, dots: 1 });
-        }
-        return { member_id: m.id, votes, reasoning: 'Demo vote (AI not connected).' };
+        const ranked = c.slice().sort((a, b) => value(m, b) - value(m, a));
+        const plan = dots >= 3 ? [Math.ceil(dots / 2), dots - Math.ceil(dots / 2)] : [dots];
+        const votes = plan.map((n, i) => ranked[i] && { sticky_id: ranked[i].id, dots: n }).filter((v) => v && v.dots > 0);
+        return { member_id: m.id, votes, reasoning: 'Simulated vote: favors high impact for reasonable effort.' };
       }),
     };
   },
@@ -83,7 +82,8 @@ const tasks = {
   decide_hmw(db, ws, body) {
     const top = (body.candidates || [])[0];
     if (!top) throw new Error('No candidates to decide between.');
-    return { sticky_id: top.id, rationale: `Demo decision (AI not connected): "${top.text}" had the strongest support, so we carry it forward.` };
+    const second = (body.candidates || [])[1];
+    return { sticky_id: top.id, rationale: `Simulated AI decision: this had the strongest support (score ${top.score}${second ? ` vs ${second.score}` : ''})${top.quadrant ? ` and sits in ${top.quadrant}` : ''}, so we carry it forward.` };
   },
 };
 
@@ -91,6 +91,7 @@ function synth(db, ws) { return db.members.filter((m) => m.workshop_id === ws.id
 
 export async function demoAi(db, task, body) {
   const ws = db.workshops.find((w) => w.id === body.workshop_id);
+  if (!ws) throw new Error('Workshop not found.');
   if (!tasks[task]) throw new Error('Unknown AI task: ' + task);
   await new Promise((r) => setTimeout(r, 600)); // feel like a network call
   return tasks[task](db, ws, body);

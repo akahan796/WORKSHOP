@@ -4,7 +4,6 @@
 // per tab (sessionStorage), so one browser can play organizer, researcher and
 // participants side by side.
 import { uid, token } from '../lib.js';
-import { demoAi } from './demo-ai.js';
 
 const DB_KEY = 'wai_demo_db';
 const SESSION_KEY = 'wai_demo_session';
@@ -221,7 +220,7 @@ export function createDemoBackend() {
       write((db) => { db.votes = db.votes.filter((v) => !(v.workshop_id === wsId && v.round === round && (!memberIds || memberIds.includes(v.member_id)))); }, 'votes');
     },
 
-    async ai(task, body) { return demoAi(load(), task, body); },
+    async ai() { throw new Error('Demo mode uses simulated AI.'); },
 
     subscribe(wsId, fn) {
       const handler = (table) => fn(table);

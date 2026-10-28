@@ -8,6 +8,7 @@ import { Header, Avatar, Empty, Modal } from './ui.js';
 import { ResearchManager } from './research.js';
 import { IntroStage, ResearchStage, HmwStage, ComingSoonStage } from './stages.js';
 import { GridStage, VoteHmwStage } from './stages2.js';
+import { isSimulated } from '../ai.js';
 
 function useNow(ms = 1000) {
   const [now, setNow] = useState(Date.now());
@@ -75,6 +76,7 @@ export function RoomView({ wsId, user }) {
           <b>${w.title}</b>
           <span class="muted">Step ${idx + 1} of ${steps.length} · ${step.title}</span>
         </div>
+        ${isOrganizer && isSimulated(w) && backend.mode !== 'demo' && html`<span class="pill pill-ai" title="AI results come from the built-in stand-in (Setup → Details → AI mode)">Simulated AI</span>`}
         <${Timer} w=${w} step=${step} isOrganizer=${isOrganizer} />
       <//>
       ${w.status === 'draft' && html`<div class="banner">${isOrganizer ? 'The workshop is in draft. Click Start workshop when everyone is here.' : "The workshop hasn't started yet. Hang tight: this page updates automatically."}</div>`}
