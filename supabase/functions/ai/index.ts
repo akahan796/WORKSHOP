@@ -102,7 +102,7 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
     const ctx = await workshopContext(sb, ws, true);
     const out = await callTool(
       SYSTEM + " You are placing How Might We (HMW) statements on an Impact/Effort grid.",
-      [...ctx.blocks, { type: "text", text: `${ctx.text}\n\nScore each HMW below.\n- impact: 0–100, how much solving it would improve outcomes for the users and business described.\n- effort: 0–100, how hard it would likely be to deliver (design, engineering, data, change management).\nUse the full range so the statements spread across all four quadrants where justified. Give a one-sentence rationale for each.\n\nHMWs:\n${items.map((i) => `- id ${i.id}: ${i.text}`).join("\n")}` }],
+      [...ctx.blocks, { type: "text", text: `${ctx.text}\n\nScore each HMW below.\n- impact: 0–100, how much solving it would improve outcomes for the users and business described.\n- effort: 0–100, how hard it would likely be to deliver (design, engineering, data, change management).\nUse the full range so the statements spread across all four quadrants where justified. 50 is the quadrant boundary, so never give exactly 50: commit to one side. Give a one-sentence rationale for each.\n\nHMWs:\n${items.map((i) => `- id ${i.id}: ${i.text}`).join("\n")}` }],
       {
         name: "place_on_grid",
         description: "Record an impact and effort score for every HMW.",
@@ -274,6 +274,8 @@ Deno.serve(async (req) => {
     return json(await task(sb, ws, body));
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) return json({ error: "The Anthropic API key is missing or invalid (Edge Function secret ANTHROPIC_API_KEY)." }, 500);
+    // Billing problems arrive as a 400 whose message names the credit balance.
+    if (e instanceof Anthropic.BadRequestError && /credit balance/i.test(e.message)) return json({ error: "The Anthropic account is out of credits. Add credits in the Anthropic Console (Plans & Billing), then try again." }, 402);
     if (e instanceof Anthropic.RateLimitError) return json({ error: "The AI is rate limited right now. Try again in a minute." }, 429);
     if (e instanceof Anthropic.APIError) return json({ error: `AI error ${e.status}: ${e.message}` }, 502);
     return json({ error: (e as Error).message || String(e) }, 500);

@@ -2,7 +2,7 @@
 // function, or the demo stand-in) for plain results, then writes them as normal
 // workshop data, so everyone's screen updates live.
 import { backend } from './backend/index.js';
-import { nextColor } from './lib.js';
+import { nextColor, hmwText } from './lib.js';
 
 export const QUADRANTS = {
   quick: { label: 'Quick win', hint: 'High impact · low effort' },
@@ -48,9 +48,7 @@ export async function synthResearch(w) {
 
 export async function synthHmw(w) {
   const { contributions } = await backend.ai('synth_hmw', { workshop_id: w.id });
-  return addContributions(w, contributions, 'hmw', (c) => c.hmws.map((t) => ({
-    kind: 'hmw', text: 'How might we ' + t.replace(/^how might we\s*/i, '').trim(),
-  })));
+  return addContributions(w, contributions, 'hmw', (c) => c.hmws.map((t) => ({ kind: 'hmw', text: hmwText(t) })));
 }
 
 export async function placeGrid(w, hmws) {

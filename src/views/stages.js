@@ -1,5 +1,5 @@
 // The stage shown for each workshop step.
-import { html, useState, useEffect, useMemo, cx, DISCIPLINES, ROLES, fmtDate } from '../lib.js';
+import { html, useState, useEffect, useMemo, cx, DISCIPLINES, ROLES, fmtDate, hmwText } from '../lib.js';
 import { backend } from '../backend/index.js';
 import { activeSteps, defaultIntro, STICKY_KINDS } from '../steps.js';
 import { Avatar, Empty, AiButton } from './ui.js';
@@ -226,10 +226,10 @@ export function HmwStage({ w, data, me, isOrganizer }) {
   const byPerson = data.members.map((m) => [m, hmws.filter((s) => s.member_id === m.id)]).filter(([, l]) => l.length);
 
   const add = (t) => {
-    const clean = t.replace(/^how might we\s*/i, '').replace(/^\.\.\.|^…/, '').trim();
+
     const data = source ? { source_id: source.id } : {};
     setSource(null);
-    return backend.addSticky({ workshop_id: w.id, member_id: me.id, step: 'hmw', kind: 'hmw', text: 'How might we ' + clean, data });
+    return backend.addSticky({ workshop_id: w.id, member_id: me.id, step: 'hmw', kind: 'hmw', text: hmwText(t), data });
   };
 
   return html`

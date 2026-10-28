@@ -43,3 +43,10 @@ export function fmtDate(iso) {
 export function inviteUrl(tok) { return location.origin + location.pathname + '#/join/' + tok; }
 
 export function navigate(path) { location.hash = '#' + path; }
+
+// "How might we" + the rest, joined naturally: "Modernize workflow" → "How might we modernize workflow".
+export function hmwText(t) {
+  let rest = String(t).replace(/^how might we\s*/i, '').replace(/^(\.\.\.|…)\s*/, '').trim();
+  if (/^[A-Z][a-z]/.test(rest)) rest = rest[0].toLowerCase() + rest.slice(1);
+  return 'How might we ' + rest;
+}
