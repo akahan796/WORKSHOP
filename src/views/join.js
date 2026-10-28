@@ -34,7 +34,7 @@ export function JoinView({ token, user }) {
         <span class="eyebrow">You're invited as ${invite.member_role === 'participant' ? 'a participant' : 'the ' + ROLES[invite.member_role].toLowerCase()}</span>
         <h1>${invite.workshop_title}</h1>
         <p class="muted">Confirm your details to join. Your link is personal, so don't share it.</p>
-        ${user && user.isStaff && html`<p class="notice">You're signed in as an organizer (${user.email}). Joining here switches this ${backend.mode === 'demo' ? 'tab' : 'browser'} to the guest. To keep your organizer session, open the link in a private window.</p>`}
+        ${user && user.isStaff && html`<p class="notice">You're signed in as an organizer (${user.email}). Joining switches only this tab to the guest; you stay signed in as organizer in your other tabs.</p>`}
         <${Field} label="Your name"><input required value=${name} onInput=${(e) => setName(e.target.value)} autocomplete="name" /><//>
         ${invite.member_role === 'participant' && html`
           <${Field} label="Your discipline">

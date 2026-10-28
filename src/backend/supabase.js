@@ -1,8 +1,22 @@
 // Supabase backend. Tables, RLS and RPCs are defined in supabase/schema.sql.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
+// Guest (anonymous) sessions live in sessionStorage, staff sessions in localStorage.
+// So an invite link opened in another tab signs in only that tab, and the
+// organizer stays signed in everywhere else.
+const authStorage = {
+  getItem: (k) => sessionStorage.getItem(k) ?? localStorage.getItem(k),
+  setItem: (k, v) => {
+    if (/"is_anonymous":\s*true/.test(v)) sessionStorage.setItem(k, v);
+    else { localStorage.setItem(k, v); sessionStorage.removeItem(k); }
+  },
+  removeItem: (k) => {
+    if (sessionStorage.getItem(k) != null) sessionStorage.removeItem(k); else localStorage.removeItem(k);
+  },
+};
+
 export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
-  const sb = createClient(supabaseUrl, supabaseAnonKey);
+  const sb = createClient(supabaseUrl, supabaseAnonKey, { auth: { storage: authStorage } });
   let user = null;
   const authListeners = new Set();
 
@@ -25,7 +39,7 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
       if (!data.session) throw new Error('Check your email to confirm your account, then sign in.');
     },
     async signIn({ email, password }) { ok(await sb.auth.signInWithPassword({ email: email.trim(), password })); },
-    async signOut() { await sb.auth.signOut(); },
+    async signOut() { await sb.auth.signOut({ scope: 'local' }); },
 
     async listMyWorkshops() {
       return ok(await sb.from('workshops').select('*').order('created_at', { ascending: false }));
@@ -55,10 +69,8 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
       return rows && rows[0] ? rows[0] : null;
     },
     async claimInvite(tok, name, discipline) {
-      if (!user || user.isStaff) {
-        if (user) await sb.auth.signOut();
-        ok(await sb.auth.signInAnonymously());
-      }
+      // A staff session isn't signed out: the new guest session just takes over this tab.
+      if (!user || user.isStaff) ok(await sb.auth.signInAnonymously());
       return ok(await sb.rpc('claim_invite', { p_token: tok, p_name: name, p_discipline: discipline || '' }));
     },
 
