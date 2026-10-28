@@ -156,7 +156,11 @@ export function Crazy8Stage({ w, data, me, isOrganizer }) {
       ${isOrganizer && html`
         <section class="card">
           <div class="row between"><h3>Progress</h3>
-            ${data.members.some((m) => m.is_synthetic) && html`<${AiButton} label="AI participants sketch their Crazy 8s" run=${() => synthCrazy8(w, data.members)} />`}</div>
+            ${data.members.some((m) => m.is_synthetic) && html`<${AiButton} label="AI participants sketch their Crazy 8s" busyHint="AI sketching takes 2–3 minutes. You can keep working meanwhile." run=${(progress) => {
+              const redo = data.members.some((m) => m.is_synthetic && sheets.some((x) => x.member_id === m.id && x.cells.some((c) => c.file_path)));
+              if (redo && !confirm("The AI participants already have Crazy 8s. Replace them with new sketches?")) return false;
+              return synthCrazy8(w, data.members, progress);
+            }} />`}</div>
           <ul class="progress-list">
             ${sketchers.map((m) => { const x = sheets.find((s) => s.member_id === m.id); const n = x ? x.cells.filter((c) => c.file_path).length : 0; return html`
               <li key=${m.id}><${Avatar} name=${m.name} color=${m.color} size=${22} /><span class="grow">${m.name}${m.is_synthetic ? ' (AI)' : ''}</span>
@@ -291,8 +295,12 @@ export function SolutionStage({ w, data, me, isOrganizer }) {
       ${isOrganizer && html`
         <section class="card">
           <div class="row between"><h3>Progress</h3>
-            ${data.members.some((m) => m.is_synthetic) && html`<${AiButton} label="AI participants create solution sketches"
-              run=${() => synthSolutions(w, data.members, ideas.slice(0, 15).map((r) => ({ id: r.item.id, caption: r.item.caption, author: authors[r.item.member_id]?.name, votes: r.score })))} />`}</div>
+            ${data.members.some((m) => m.is_synthetic) && html`<${AiButton} label="AI participants create solution sketches" busyHint="AI sketching takes 2–3 minutes. You can keep working meanwhile."
+              run=${(progress) => {
+                const redo = data.members.some((m) => m.is_synthetic && solutions.some((x) => x.member_id === m.id));
+                if (redo && !confirm("The AI participants already have solution sketches. Replace them with new ones?")) return false;
+                return synthSolutions(w, data.members, ideas.slice(0, 15).map((r) => ({ id: r.item.id, caption: r.item.caption, author: authors[r.item.member_id]?.name, votes: r.score })), progress);
+              }} />`}</div>
           <ul class="progress-list">${sketchers.map((m) => { const x = solutions.find((s) => s.member_id === m.id); return html`
             <li key=${m.id}><${Avatar} name=${m.name} color=${m.color} size=${22} /><span class="grow">${m.name}${m.is_synthetic ? ' (AI)' : ''}</span>
               <span class="small">${x ? `${x.title || 'Untitled'} · ${x.cells.filter((c) => c.file_path).length} frames` : 'Not started'}</span>

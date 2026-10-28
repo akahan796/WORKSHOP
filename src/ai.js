@@ -136,27 +136,31 @@ async function saveCells(w, memberId, cells) {
 }
 
 // Runs one AI call per synthetic participant, in parallel. Returns a summary line.
-async function perSynth(members, fn) {
+async function perSynth(members, fn, onProgress) {
   const synth = members.filter((m) => m.is_synthetic);
-  const results = await Promise.allSettled(synth.map(fn));
+  let done = 0;
+  onProgress && onProgress(`0 of ${synth.length} done`);
+  const results = await Promise.allSettled(synth.map(async (m) => {
+    try { return await fn(m); } finally { done++; onProgress && onProgress(`${done} of ${synth.length} done`); }
+  }));
   const failed = results.filter((r) => r.status === 'rejected');
   if (failed.length === results.length && failed.length) throw failed[0].reason;
   return `${results.length - failed.length} of ${results.length} AI participants done${failed.length ? ` (${failed[0].reason.message})` : ''}.`;
 }
 
-export function synthCrazy8(w, members) {
+export function synthCrazy8(w, members, onProgress) {
   return perSynth(members, async (m) => {
     const { cells } = await runAi(w, 'synth_crazy8', { member_id: m.id });
     await backend.saveSheet(w.id, m.id, 'crazy8', { cells: await saveCells(w, m.id, cells), ready: true });
-  });
+  }, onProgress);
 }
 
 // ideas: [{ id, caption, author, votes }] (Crazy 8s cells)
-export function synthSolutions(w, members, ideas) {
+export function synthSolutions(w, members, ideas, onProgress) {
   return perSynth(members, async (m) => {
     const r = await runAi(w, 'synth_solution', { member_id: m.id, ideas });
     await backend.saveSheet(w.id, m.id, 'solution', { title: r.title, summary: r.summary, based_on: r.based_on, cells: await saveCells(w, m.id, r.frames), ready: true });
-  });
+  }, onProgress);
 }
 
 export async function synthComments(w, solutions, members) {

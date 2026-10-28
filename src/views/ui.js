@@ -68,18 +68,22 @@ export function useCopy() {
 }
 
 // A button that runs an async action, showing progress and any error inline.
-export function AiButton({ label, run, disabled, title }) {
+// `run` gets a progress callback for long actions, e.g. progress('1 of 3 done').
+// Returning false (e.g. after a declined confirm) cancels quietly.
+export function AiButton({ label, run, disabled, title, busyHint }) {
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState('');
   const [msg, setMsg] = useState(null); // { error?: string, ok?: string }
   async function go() {
-    setBusy(true); setMsg(null);
-    try { const ok = await run(); setMsg(ok ? { ok } : null); }
+    setBusy(true); setMsg(null); setProgress('');
+    try { const ok = await run(setProgress); setMsg(ok ? { ok } : null); }
     catch (e) { setMsg({ error: e.message }); }
     setBusy(false);
   }
   return html`
     <span class="ai-action">
-      <button class="btn btn-sm ai-btn" disabled=${busy || disabled} title=${title} onClick=${go}>${busy ? 'Working…' : '✨ ' + label}</button>
+      <button class="btn btn-sm ai-btn" disabled=${busy || disabled} title=${title} onClick=${go}>${busy ? 'Working…' + (progress ? ' ' + progress : '') : '✨ ' + label}</button>
+      ${busy && busyHint && html`<span class="muted small">${busyHint}</span>`}
       ${msg && msg.error && html`<span class="error small">${msg.error}</span>`}
       ${msg && msg.ok && html`<span class="muted small">${msg.ok}</span>`}
     </span>`;
