@@ -148,9 +148,27 @@ async function perSynth(members, fn, onProgress) {
   return `${results.length - failed.length} of ${results.length} AI participants done${failed.length ? ` (${failed[0].reason.message})` : ''}.`;
 }
 
+// Two batches of 4 per participant run at the same time, each with its own angle so
+// they don't overlap; a top-up call fills any gap. (An older edge function ignores
+// `count` and returns 8 per batch, so each batch is trimmed to 4.)
+const CRAZY8_BATCHES = [
+  'Practical ideas: quick wins that reuse screens, data and patterns the product already has.',
+  'Bolder ideas: new interactions, automation, or a different workflow altogether.',
+];
+async function crazy8Sketches(w, memberId) {
+  const batches = await Promise.all(CRAZY8_BATCHES.map((angle) =>
+    runAi(w, 'synth_crazy8', { member_id: memberId, count: 4, angle }).then((r) => r.cells.filter((c) => c.svg).slice(0, 4))));
+  const cells = batches.flat();
+  if (cells.length < 8) {
+    const more = await runAi(w, 'synth_crazy8', { member_id: memberId, count: 8 - cells.length, avoid: cells.map((c) => c.caption) });
+    cells.push(...more.cells.filter((c) => c.svg).slice(0, 8 - cells.length));
+  }
+  return cells;
+}
+
 export function synthCrazy8(w, members, onProgress) {
   return perSynth(members, async (m) => {
-    const { cells } = await runAi(w, 'synth_crazy8', { member_id: m.id });
+    const cells = await crazy8Sketches(w, m.id);
     await backend.saveSheet(w.id, m.id, 'crazy8', { cells: await saveCells(w, m.id, cells), ready: true });
   }, onProgress);
 }

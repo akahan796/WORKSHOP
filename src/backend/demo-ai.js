@@ -81,8 +81,12 @@ const tasks = {
 
   synth_crazy8(db, ws, body) {
     const m = db.members.find((x) => x.id === body.member_id);
-    const off = Math.floor(hash(m ? m.id : '') * 8);
-    return { cells: IDEAS.map((_, i) => { const idea = IDEAS[(i + off) % 8]; return { caption: idea, svg: wireframe((i + off) % 8, idea) }; }) };
+    const count = Math.max(1, Math.min(8, body.count || 8));
+    // Batches pick different ideas: the second angle starts halfway round the list.
+    const off = Math.floor(hash(m ? m.id : '') * 8) + (/bolder/i.test(body.angle || '') ? 4 : 0);
+    const avoid = new Set(body.avoid || []);
+    const pool = IDEAS.map((_, i) => (i + off) % 8).filter((i) => !avoid.has(IDEAS[i]));
+    return { cells: pool.slice(0, count).map((i) => ({ caption: IDEAS[i], svg: wireframe(i, IDEAS[i]) })) };
   },
 
   synth_solution(db, ws, body) {

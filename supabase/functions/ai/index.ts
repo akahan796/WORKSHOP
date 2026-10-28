@@ -12,7 +12,7 @@
 //   synth_hmw           HMW statements from each AI participant
 //   synth_votes         dot votes from each AI participant
 //   decide_hmw          the AI Decider's final pick among HMW candidates
-//   synth_crazy8        one AI participant's 8 Crazy 8s sketches (SVG wireframes)
+//   synth_crazy8        one AI participant's Crazy 8s sketches (SVG wireframes); `count`/`angle`/`avoid` for batches
 //   synth_solution      one AI participant's solution sketch (title, summary, 3–4 SVG frames)
 //   synth_comments      AI participants' review comments on solution sketches
 //   decide_solution     the AI Decider's final pick of a solution direction
@@ -328,19 +328,24 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
         } } },
       },
     };
-    // Ask for 8; if fewer usable sketches come back, ask once more for the rest.
+    // The app asks in parallel batches (e.g. 2 × 4) with a different angle each, so
+    // participants finish sooner. If fewer usable sketches come back, ask once more.
+    const target = Math.max(1, Math.min(8, Number(body.count) || 8));
+    const angle = body.angle ? `\nFor this batch: ${String(body.angle).slice(0, 300)}` : "";
+    const avoid: string[] = (body.avoid || []).map(String).slice(0, 16);
     const cells: { caption: string; svg: string }[] = [];
-    for (let attempt = 0; attempt < 2 && cells.length < 8; attempt++) {
-      const need = 8 - cells.length;
-      const have = cells.length ? `\nYou already sketched: ${cells.map((c) => c.caption).join("; ")}. Make ${need} more that are different from these.` : "";
+    for (let attempt = 0; attempt < 2 && cells.length < target; attempt++) {
+      const need = target - cells.length;
+      const done = [...avoid, ...cells.map((c) => c.caption)];
+      const have = done.length ? `\nAlready sketched: ${done.join("; ")}. Make ${need} more that are different from these.` : "";
       const out = await callTool(
         SYSTEM + " You play one synthetic participant doing Crazy 8s: eight quick, genuinely different ideas in eight minutes.",
-        [{ type: "text", text: `${ctx.text}\n\nYou are:\n${personaList(members)}\n\nSketch exactly ${need} different ideas that answer the chosen HMW, from your perspective. Go wide: vary the approach, not just the layout. ${SVG_RULES} Give each a caption under 12 words.${have}` }],
+        [{ type: "text", text: `${ctx.text}\n\nYou are:\n${personaList(members)}\n\nSketch exactly ${need} different ideas that answer the chosen HMW, from your perspective. Go wide: vary the approach, not just the layout. ${SVG_RULES} Give each a caption under 12 words.${angle}${have}` }],
         tool, 32000,
       );
       for (const c of out.sketches || []) {
         const svg = cleanSvg(c.svg);
-        if (svg && c.caption && cells.length < 8) cells.push({ caption: c.caption, svg });
+        if (svg && c.caption && cells.length < target) cells.push({ caption: c.caption, svg });
       }
     }
     return { cells };
