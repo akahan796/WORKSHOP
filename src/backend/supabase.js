@@ -8,6 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 // let the organizer's session leak into guest tabs (and vice versa).
 const GUEST_KEY = 'wai_guest_storage_key';
 const urlCache = {}; // sketch path → { url, exp }
+const LIVE_TABLES = ['workshops', 'members', 'research', 'stickies', 'votes', 'sheets'];
 
 export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
   let user = null;
@@ -36,7 +37,8 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
   }
   useClient(!!sessionStorage.getItem(GUEST_KEY));
 
-  return {
+  const localListeners = new Set();
+  const api = {
     mode: 'supabase',
     async init() { const { data } = await sb.auth.getSession(); user = toUser(data.session?.user); },
     session: () => user,
@@ -167,14 +169,48 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
       return data;
     },
 
+    // Live updates. Three sources, so a screen never goes stale:
+    //  1. realtime changes from other people (a fresh channel per subscription:
+    //     reusing a topic while the previous channel is still closing drops events),
+    //  2. this tab's own writes, applied immediately (see the wrapper below),
+    //  3. a fallback refresh when the tab regains focus and every 20 seconds.
     subscribe(wsId, fn) {
-      const ch = sb.channel('ws-' + wsId);
-      for (const table of ['workshops', 'members', 'research', 'stickies', 'votes', 'sheets']) {
+      const ch = sb.channel(`ws-${wsId}-${crypto.randomUUID()}`);
+      for (const table of LIVE_TABLES) {
         const filter = table === 'workshops' ? `id=eq.${wsId}` : `workshop_id=eq.${wsId}`;
         ch.on('postgres_changes', { event: '*', schema: 'public', table, filter }, () => fn(table));
       }
       ch.subscribe();
-      return () => sb.removeChannel(ch);
+      const local = (table) => fn(table);
+      localListeners.add(local);
+      const refreshAll = () => LIVE_TABLES.forEach((t) => fn(t));
+      const onVisible = () => document.visibilityState === 'visible' && refreshAll();
+      document.addEventListener('visibilitychange', onVisible);
+      const timer = setInterval(() => document.visibilityState === 'visible' && refreshAll(), 20000);
+      return () => {
+        sb.removeChannel(ch);
+        localListeners.delete(local);
+        document.removeEventListener('visibilitychange', onVisible);
+        clearInterval(timer);
+      };
     },
   };
+
+  // Writes notify this tab's subscribers right away, without waiting for realtime.
+  const WRITES = {
+    updateWorkshop: ['workshops'], setStepState: ['workshops'], setDecision: ['workshops'],
+    addMember: ['members'], updateMember: ['members'], removeMember: ['members', 'stickies', 'votes', 'sheets'], claimInvite: ['members'],
+    uploadResearch: ['research'], deleteResearch: ['research'],
+    addSticky: ['stickies'], updateSticky: ['stickies'], deleteSticky: ['stickies', 'votes'],
+    addVotes: ['votes'], deleteVote: ['votes'], deleteVotes: ['votes'], saveSheet: ['sheets'],
+  };
+  for (const [name, tables] of Object.entries(WRITES)) {
+    const write = api[name];
+    api[name] = async (...args) => {
+      const result = await write.apply(api, args);
+      tables.forEach((t) => localListeners.forEach((fn) => fn(t)));
+      return result;
+    };
+  }
+  return api;
 }
