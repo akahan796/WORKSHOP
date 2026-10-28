@@ -1,32 +1,39 @@
 // Supabase backend. Tables, RLS and RPCs are defined in supabase/schema.sql.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
-// Guest (anonymous) sessions live in sessionStorage, staff sessions in localStorage.
-// So an invite link opened in another tab signs in only that tab, and the
-// organizer stays signed in everywhere else.
-const authStorage = {
-  getItem: (k) => sessionStorage.getItem(k) ?? localStorage.getItem(k),
-  setItem: (k, v) => {
-    if (/"is_anonymous":\s*true/.test(v)) sessionStorage.setItem(k, v);
-    else { localStorage.setItem(k, v); sessionStorage.removeItem(k); }
-  },
-  removeItem: (k) => {
-    if (sessionStorage.getItem(k) != null) sessionStorage.removeItem(k); else localStorage.removeItem(k);
-  },
-};
+// Two kinds of client. Staff (organizers) use the default client: session in
+// localStorage, shared by all their tabs. A guest tab (opened from an invite link)
+// gets its OWN client with a per-tab storage key in sessionStorage. supabase-js
+// syncs sessions across tabs that share a storage key, so a shared key would
+// let the organizer's session leak into guest tabs (and vice versa).
+const GUEST_KEY = 'wai_guest_storage_key';
 
 export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
-  const sb = createClient(supabaseUrl, supabaseAnonKey, { auth: { storage: authStorage } });
   let user = null;
+  let sb = null;
+  let unsubAuth = null;
   const authListeners = new Set();
 
   const toUser = (u) => (u ? { id: u.id, email: u.email || '', name: u.user_metadata?.name || '', isStaff: !u.is_anonymous } : null);
   const ok = ({ data, error }) => { if (error) throw new Error(error.message); return data; };
 
-  sb.auth.onAuthStateChange((_e, session) => {
-    user = toUser(session?.user);
-    authListeners.forEach((fn) => fn(user));
-  });
+  function useClient(guest) {
+    if (unsubAuth) unsubAuth();
+    if (guest) {
+      let key = sessionStorage.getItem(GUEST_KEY);
+      if (!key) { key = 'wai-guest-' + crypto.randomUUID(); sessionStorage.setItem(GUEST_KEY, key); }
+      sb = createClient(supabaseUrl, supabaseAnonKey, { auth: { storage: sessionStorage, storageKey: key } });
+    } else {
+      sessionStorage.removeItem(GUEST_KEY);
+      sb = createClient(supabaseUrl, supabaseAnonKey);
+    }
+    const { data } = sb.auth.onAuthStateChange((_e, session) => {
+      user = toUser(session?.user);
+      authListeners.forEach((fn) => fn(user));
+    });
+    unsubAuth = () => data.subscription.unsubscribe();
+  }
+  useClient(!!sessionStorage.getItem(GUEST_KEY));
 
   return {
     mode: 'supabase',
@@ -39,7 +46,11 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
       if (!data.session) throw new Error('Check your email to confirm your account, then sign in.');
     },
     async signIn({ email, password }) { ok(await sb.auth.signInWithPassword({ email: email.trim(), password })); },
-    async signOut() { await sb.auth.signOut({ scope: 'local' }); },
+    async signOut() {
+      const guest = !!sessionStorage.getItem(GUEST_KEY);
+      await sb.auth.signOut({ scope: 'local' });
+      if (guest) { useClient(false); await this.init(); authListeners.forEach((fn) => fn(user)); }
+    },
 
     async listMyWorkshops() {
       return ok(await sb.from('workshops').select('*').order('created_at', { ascending: false }));
@@ -69,9 +80,15 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
       return rows && rows[0] ? rows[0] : null;
     },
     async claimInvite(tok, name, discipline) {
-      // A staff session isn't signed out: the new guest session just takes over this tab.
-      if (!user || user.isStaff) ok(await sb.auth.signInAnonymously());
-      return ok(await sb.rpc('claim_invite', { p_token: tok, p_name: name, p_discipline: discipline || '' }));
+      // This tab becomes a guest tab with its own session; a staff session in
+      // other tabs is left untouched.
+      if (!user || user.isStaff) {
+        useClient(true);
+        ok(await sb.auth.signInAnonymously({ options: { data: { name: name.trim() } } }));
+      }
+      const wsId = ok(await sb.rpc('claim_invite', { p_token: tok, p_name: name, p_discipline: discipline || '' }));
+      if (user && user.name !== name.trim()) ok(await sb.auth.updateUser({ data: { name: name.trim() } }));
+      return wsId;
     },
 
     async listResearch(wsId) { return ok(await sb.from('research').select('*').eq('workshop_id', wsId).order('created_at')); },

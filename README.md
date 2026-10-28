@@ -28,7 +28,7 @@ No Node or build step. Data lives in **Supabase**, or in the browser in **demo m
 
 ## Local preview
 
-`python3 -m http.server 4650` (launch config **"workshop"**). With `config.js`
+`python3 dev-server.py` (launch config **"workshop"**, port 4650; caching off so edits always load). With `config.js`
 empty it runs in demo mode. Open invite links in other tabs to play the
 researcher and participants side by side; each tab is its own user.
 

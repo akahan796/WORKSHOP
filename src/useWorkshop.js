@@ -1,29 +1,36 @@
 // Live workshop data: loads everything for one workshop and refetches the
 // affected table whenever the backend reports a change (any user, any tab).
-import { useState, useEffect, useCallback } from './lib.js';
+// Rapid changes trigger overlapping fetches; each table only applies the result
+// of its most recent fetch, so a slow older response can't overwrite a newer one.
+import { useState, useEffect, useCallback, useRef } from './lib.js';
 import { backend } from './backend/index.js';
+
+const TABLES = ['workshops', 'members', 'research', 'stickies'];
 
 export function useWorkshop(wsId, user) {
   const [state, setState] = useState({ loading: true, workshop: null, members: [], research: [], stickies: [], invites: {}, error: null });
+  const seq = useRef({});
 
-  const load = useCallback(async (table) => {
-    try {
-      const patch = {};
-      const all = !table;
-      if (all || table === 'workshops') patch.workshop = await backend.getWorkshop(wsId);
-      if (all || table === 'members') patch.members = await backend.listMembers(wsId);
-      if (all || table === 'research') patch.research = await backend.listResearch(wsId);
-      if (all || table === 'stickies') patch.stickies = await backend.listStickies(wsId);
-      const ws = patch.workshop || null;
-      if ((all || table === 'members') && user && user.isStaff) {
-        const w = ws || (await backend.getWorkshop(wsId));
+  const fetchTable = useCallback(async (table) => {
+    const n = (seq.current[table] = (seq.current[table] || 0) + 1);
+    const patch = {};
+    if (table === 'workshops') patch.workshop = await backend.getWorkshop(wsId);
+    if (table === 'members') {
+      patch.members = await backend.listMembers(wsId);
+      if (user && user.isStaff) {
+        const w = await backend.getWorkshop(wsId);
         if (w && w.organizer_id === user.id) patch.invites = await backend.listInvites(wsId);
       }
-      setState((s) => ({ ...s, ...patch, loading: false, error: null }));
-    } catch (e) {
-      setState((s) => ({ ...s, loading: false, error: e.message }));
     }
+    if (table === 'research') patch.research = await backend.listResearch(wsId);
+    if (table === 'stickies') patch.stickies = await backend.listStickies(wsId);
+    if (n === seq.current[table]) setState((s) => ({ ...s, ...patch, loading: false, error: null }));
   }, [wsId, user && user.id]);
+
+  const load = useCallback(async (table) => {
+    try { await Promise.all((table ? [table] : TABLES).map(fetchTable)); }
+    catch (e) { setState((s) => ({ ...s, loading: false, error: e.message })); }
+  }, [fetchTable]);
 
   useEffect(() => {
     load();

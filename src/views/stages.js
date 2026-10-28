@@ -101,8 +101,15 @@ export function ResearchStage({ w, data, me, isOrganizer, isResearcher }) {
   const [view, setView] = useState('slides');
   const revealed = !!st.research_reveal;
 
-  const doc = local ? docs.find((d) => d.id === local.docId) || sharedDoc : sharedDoc;
-  const page = local ? local.page : sharedPage;
+  // Presenter's own pending change, shown immediately until the server echoes it back.
+  const [pending, setPending] = useState(null); // { docId, page }
+  useEffect(() => {
+    if (pending && sharedDoc && pending.docId === sharedDoc.id && pending.page === sharedPage) setPending(null);
+  }, [sharedDoc && sharedDoc.id, sharedPage]);
+
+  const view0 = local || pending;
+  const doc = view0 ? docs.find((d) => d.id === view0.docId) || sharedDoc : sharedDoc;
+  const page = view0 ? view0.page : sharedPage;
 
   useEffect(() => {
     let alive = true;
@@ -113,7 +120,7 @@ export function ResearchStage({ w, data, me, isOrganizer, isResearcher }) {
 
   const go = (p, d = doc) => {
     p = Math.min(Math.max(1, p), d.id === doc.id && pages ? pages : 1e4);
-    if (canPresent) backend.setStepState(w.id, { research_doc: d.id, research_page: p });
+    if (canPresent) { setPending({ docId: d.id, page: p }); backend.setStepState(w.id, { research_doc: d.id, research_page: p }); }
     else setLocal({ docId: d.id, page: p });
   };
 
