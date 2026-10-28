@@ -5,6 +5,11 @@ Organizers set up the workshop and invite people; researchers share findings;
 participants join from a personal guest link and contribute at each step.
 Full spec and phase plan: [SPEC.md](SPEC.md).
 
+**Phase 2 (built):** synthetic AI participants (generated personas that add
+stickies, HMWs and votes on request; one can be the Decider), the Impact/Effort
+grid with AI placement and drag-to-adjust, and HMW dot voting with the Decider
+(purple dots, counted 2×, final call by a human or AI Decider).
+
 **Phase 1 (built):** organizer accounts, workshop setup (details, intro, agenda,
 people, research), guest invite links, a live room that keeps every screen on the
 organizer's current step with a shared timer, and steps 1–3: Introductions,
@@ -25,6 +30,9 @@ No Node or build step. Data lives in **Supabase**, or in the browser in **demo m
 | `src/views/` | Auth, dashboard, setup, join, live room, step stages. |
 | `src/steps.js` | The 13-step agenda from the runbook. |
 | `supabase/schema.sql` | Tables, row-level security, RPCs, realtime, storage bucket. |
+| `supabase/migrations/` | Changes after phase 1, run in order (`002_phase2.sql`: votes, personas, Decider RPC). |
+| `supabase/functions/ai/` | Claude edge function: grid placement, synthetic participants and their contributions, AI Decider. |
+| `src/ai.js` | Organizer AI actions; writes the AI's results as normal workshop data. |
 
 ## Local preview
 
@@ -38,6 +46,20 @@ researcher and participants side by side; each tab is its own user.
 2. In Authentication → Sign In / Providers, enable **Email** and **Allow anonymous sign-ins**.
    For quick testing, turn off "Confirm email".
 3. Put the project URL and anon key in `config.js`, then push.
+
+## AI (Claude) setup
+
+The AI runs in the Supabase edge function `ai` (Claude Opus 5.5), so the API key
+never reaches the browser. Only a workshop's organizer can call it.
+
+1. In SQL Editor, run `supabase/migrations/002_phase2.sql`.
+2. Edge Functions → **Deploy a new function** → **Via editor**. Name it `ai`,
+   paste `supabase/functions/ai/index.ts`, and deploy.
+3. Edge Functions → **Secrets**: add `ANTHROPIC_API_KEY` (from console.anthropic.com).
+
+Without these steps the app still works; the AI buttons show a "not set up" message.
+Add `?demo` to the URL (e.g. `http://localhost:4650/?demo`) to practice with a
+built-in stand-in for the AI and in-browser data.
 
 ## Deploy
 

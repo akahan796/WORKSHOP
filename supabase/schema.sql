@@ -1,6 +1,7 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Workshop AI — Supabase schema (phase 1).
--- Run once in the Supabase SQL Editor. Safe to re-run: objects are dropped and
+-- Run once in the Supabase SQL Editor, then every file in supabase/migrations/
+-- in order. (Existing projects: run only the migrations you haven't run yet.) Safe to re-run: objects are dropped and
 -- recreated, but re-running WIPES workshop data.
 --
 -- Auth model:
@@ -10,7 +11,7 @@
 --   • Row-level security limits every table to members of the workshop.
 -- ─────────────────────────────────────────────────────────────────────────────
 
-drop table if exists stickies, research, invites, members, workshops, profiles cascade;
+drop table if exists votes, stickies, research, invites, members, workshops, profiles cascade;
 
 -- Staff profile (organizers). Anonymous guests never get one.
 create table profiles (

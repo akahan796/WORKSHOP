@@ -66,3 +66,21 @@ export function useCopy() {
   };
   return [copied, copy];
 }
+
+// A button that runs an async action, showing progress and any error inline.
+export function AiButton({ label, run, disabled, title }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null); // { error?: string, ok?: string }
+  async function go() {
+    setBusy(true); setMsg(null);
+    try { const ok = await run(); setMsg(ok ? { ok } : null); }
+    catch (e) { setMsg({ error: e.message }); }
+    setBusy(false);
+  }
+  return html`
+    <span class="ai-action">
+      <button class="btn btn-sm ai-btn" disabled=${busy || disabled} title=${title} onClick=${go}>${busy ? 'Working…' : '✨ ' + label}</button>
+      ${msg && msg.error && html`<span class="error small">${msg.error}</span>`}
+      ${msg && msg.ok && html`<span class="muted small">${msg.ok}</span>`}
+    </span>`;
+}

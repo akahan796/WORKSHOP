@@ -2,7 +2,8 @@
 import { html, useState, useEffect, useMemo, cx, DISCIPLINES, ROLES, fmtDate } from '../lib.js';
 import { backend } from '../backend/index.js';
 import { activeSteps, defaultIntro, STICKY_KINDS } from '../steps.js';
-import { Avatar, Empty } from './ui.js';
+import { Avatar, Empty, AiButton } from './ui.js';
+import { synthResearch, synthHmw } from '../ai.js';
 import { PdfSlide } from '../pdf.js';
 
 // ── Shared sticky pieces ──
@@ -79,7 +80,7 @@ export function IntroStage({ w, data }) {
             ${people.map((m) => html`
               <div key=${m.id} class=${cx('person', !m.joined_at && 'absent')}>
                 <${Avatar} name=${m.name} color=${m.color} size=${40} />
-                <div><b>${m.name}</b><div class="muted small">${m.role === 'participant' ? DISCIPLINES[m.discipline] : ROLES[m.role]}${m.is_decider ? ' · Decider' : ''}</div>
+                <div><b>${m.name}</b>${m.is_synthetic && html` <span class="pill pill-ai">AI</span>`}<div class="muted small">${m.role === 'participant' ? DISCIPLINES[m.discipline] : ROLES[m.role]}${m.is_decider ? ' · Decider' : ''}</div>
                 ${!m.joined_at && html`<div class="muted small">Not joined yet</div>`}</div>
               </div>`)}
           </div>
@@ -182,6 +183,9 @@ function CapturePanel({ w, data, me, isOrganizer }) {
       <h3>Capture as you listen</h3>
       <p class="muted small">Silently note pain points, opportunities and observations. One idea per sticky. Your stickies stay private until the organizer reveals the wall.</p>
       ${isOrganizer && html`<p class="notice small"><b>${all.length}</b> stickies from <b>${contributors}</b> ${contributors === 1 ? 'person' : 'people'} so far.</p>`}
+      ${isOrganizer && data.members.some((m) => m.is_synthetic) && html`
+        <${AiButton} label="Add AI participants' stickies" title="Each synthetic participant writes stickies from the research deck"
+          run=${async () => `Added ${await synthResearch(w)} stickies.`} />`}
       ${me && html`
         <div class="kind-chips">
           ${Object.entries(STICKY_KINDS).map(([k, v]) => html`<button key=${k} class=${cx('chip', kind === k && 'on')} onClick=${() => setKind(k)}>${v.label}</button>`)}
@@ -253,7 +257,10 @@ export function HmwStage({ w, data, me, isOrganizer }) {
           </div>`}
         <div class="row between stage-head">
           <h3>Everyone's HMWs ${showAll ? `(${hmws.length})` : ''}</h3>
-          ${isOrganizer && html`<label class="toggle"><input type="checkbox" checked=${revealed} onChange=${(e) => backend.setStepState(w.id, { hmw_reveal: e.target.checked })} /> Reveal to everyone</label>`}
+          ${isOrganizer && html`<div class="row">
+            ${data.members.some((m) => m.is_synthetic) && html`<${AiButton} label="Add AI participants' HMWs" run=${async () => `Added ${await synthHmw(w)} HMWs.`} />`}
+            <label class="toggle"><input type="checkbox" checked=${revealed} onChange=${(e) => backend.setStepState(w.id, { hmw_reveal: e.target.checked })} /> Reveal to everyone</label>
+          </div>`}
         </div>
         ${showAll
           ? byPerson.length ? html`<div class="hmw-board">${byPerson.map(([m, list]) => html`

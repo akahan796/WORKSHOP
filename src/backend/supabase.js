@@ -60,6 +60,7 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
     async updateWorkshop(id, patch) { return ok(await sb.from('workshops').update(patch).eq('id', id).select().single()); },
     async deleteWorkshop(id) { ok(await sb.from('workshops').delete().eq('id', id)); },
     async setStepState(id, patch) { ok(await sb.rpc('set_step_state', { ws: id, patch })); },
+    async setDecision(id, key, value) { ok(await sb.rpc('set_decision', { ws: id, p_key: key, p_value: value })); },
 
     async listMembers(wsId) { return ok(await sb.from('members').select('*').eq('workshop_id', wsId).order('created_at')); },
     async addMember(wsId, fields) { return ok(await sb.from('members').insert({ ...fields, workshop_id: wsId }).select().single()); },
@@ -109,11 +110,39 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
     async listStickies(wsId) { return ok(await sb.from('stickies').select('*').eq('workshop_id', wsId).order('created_at')); },
     async addSticky(fields) { return ok(await sb.from('stickies').insert(fields).select().single()); },
     async updateSticky(id, patch) { return ok(await sb.from('stickies').update(patch).eq('id', id).select().single()); },
-    async deleteSticky(id) { ok(await sb.from('stickies').delete().eq('id', id)); },
+    async deleteSticky(id) {
+      ok(await sb.from('votes').delete().eq('target_id', id));
+      ok(await sb.from('stickies').delete().eq('id', id));
+    },
+
+    async listVotes(wsId) {
+      const { data, error } = await sb.from('votes').select('*').eq('workshop_id', wsId);
+      if (error) { console.warn('votes unavailable (run supabase/migrations/002_phase2.sql):', error.message); return []; }
+      return data;
+    },
+    async addVotes(rows) { return ok(await sb.from('votes').insert(rows).select()); },
+    async deleteVote(id) { ok(await sb.from('votes').delete().eq('id', id)); },
+    async deleteVotes(wsId, round, memberIds) {
+      let q = sb.from('votes').delete().eq('workshop_id', wsId).eq('round', round);
+      if (memberIds) q = q.in('member_id', memberIds);
+      ok(await q);
+    },
+
+    // Claude calls run in the `ai` edge function (supabase/functions/ai) with the organizer's session.
+    async ai(task, body) {
+      const { data, error } = await sb.functions.invoke('ai', { body: { task, ...body } });
+      if (error) {
+        let msg = error.message;
+        try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch {}
+        if (/Failed to send|404|not found/i.test(msg)) msg = 'The AI service isn\'t set up yet: deploy the "ai" edge function and add the ANTHROPIC_API_KEY secret (see README).';
+        throw new Error(msg);
+      }
+      return data;
+    },
 
     subscribe(wsId, fn) {
       const ch = sb.channel('ws-' + wsId);
-      for (const table of ['workshops', 'members', 'research', 'stickies']) {
+      for (const table of ['workshops', 'members', 'research', 'stickies', 'votes']) {
         const filter = table === 'workshops' ? `id=eq.${wsId}` : `workshop_id=eq.${wsId}`;
         ch.on('postgres_changes', { event: '*', schema: 'public', table, filter }, () => fn(table));
       }

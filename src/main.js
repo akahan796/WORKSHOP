@@ -13,7 +13,7 @@ import { JoinView } from './views/join.js';
 import { RoomView } from './views/room.js';
 import { Header } from './views/ui.js';
 
-console.log('Workshop AI build 2026-10-28-e · backend:', backend.mode);
+console.log('Workshop AI build 2026-10-28-f · backend:', backend.mode);
 
 function useHash() {
   const [hash, setHash] = useState(location.hash.slice(1) || '/');

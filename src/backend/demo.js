@@ -4,6 +4,7 @@
 // per tab (sessionStorage), so one browser can play organizer, researcher and
 // participants side by side.
 import { uid, token } from '../lib.js';
+import { demoAi } from './demo-ai.js';
 
 const DB_KEY = 'wai_demo_db';
 const SESSION_KEY = 'wai_demo_session';
@@ -11,7 +12,7 @@ const channel = 'BroadcastChannel' in window ? new BroadcastChannel('wai_demo') 
 const listeners = new Set();
 const authListeners = new Set();
 
-const empty = () => ({ users: [], workshops: [], members: [], invites: [], research: [], stickies: [] });
+const empty = () => ({ users: [], workshops: [], members: [], invites: [], research: [], stickies: [], votes: [] });
 const load = () => { try { return { ...empty(), ...JSON.parse(localStorage.getItem(DB_KEY) || '{}') }; } catch { return empty(); } };
 const now = () => new Date().toISOString();
 
@@ -109,9 +110,10 @@ export function createDemoBackend() {
     async deleteWorkshop(id) {
       write((db) => {
         db.workshops = db.workshops.filter((w) => w.id !== id);
-        for (const t of ['members', 'invites', 'research', 'stickies']) db[t] = db[t].filter((r) => r.workshop_id !== id);
+        for (const t of ['members', 'invites', 'research', 'stickies', 'votes']) db[t] = db[t].filter((r) => r.workshop_id !== id);
       }, 'workshops');
     },
+    async setDecision(id, key, value) { return this.setStepState(id, { [key]: value }); },
     async setStepState(id, patch) {
       write((db) => { const w = db.workshops.find((x) => x.id === id); w.step_state = { ...w.step_state, ...patch }; }, 'workshops');
     },
@@ -141,6 +143,7 @@ export function createDemoBackend() {
         db.members = db.members.filter((m) => m.id !== id);
         db.invites = db.invites.filter((i) => i.member_id !== id);
         db.stickies = db.stickies.filter((s) => s.member_id !== id);
+        db.votes = db.votes.filter((v) => v.member_id !== id);
       }, 'members');
     },
     async listInvites(wsId) {
@@ -205,7 +208,20 @@ export function createDemoBackend() {
     async updateSticky(id, patch) {
       return write((db) => { const s = db.stickies.find((x) => x.id === id); Object.assign(s, patch); return s; }, 'stickies');
     },
-    async deleteSticky(id) { write((db) => { db.stickies = db.stickies.filter((s) => s.id !== id); }, 'stickies'); },
+    async deleteSticky(id) {
+      write((db) => { db.stickies = db.stickies.filter((s) => s.id !== id); db.votes = db.votes.filter((v) => v.target_id !== id); }, 'stickies');
+    },
+
+    async listVotes(wsId) { return load().votes.filter((v) => v.workshop_id === wsId); },
+    async addVotes(rows) {
+      return write((db) => { const added = rows.map((r) => ({ id: uid(), round: 'hmw', created_at: now(), ...r })); db.votes.push(...added); return added; }, 'votes');
+    },
+    async deleteVote(id) { write((db) => { db.votes = db.votes.filter((v) => v.id !== id); }, 'votes'); },
+    async deleteVotes(wsId, round, memberIds) {
+      write((db) => { db.votes = db.votes.filter((v) => !(v.workshop_id === wsId && v.round === round && (!memberIds || memberIds.includes(v.member_id)))); }, 'votes');
+    },
+
+    async ai(task, body) { return demoAi(load(), task, body); },
 
     subscribe(wsId, fn) {
       const handler = (table) => fn(table);

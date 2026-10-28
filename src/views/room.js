@@ -7,6 +7,7 @@ import { useWorkshop } from '../useWorkshop.js';
 import { Header, Avatar, Empty, Modal } from './ui.js';
 import { ResearchManager } from './research.js';
 import { IntroStage, ResearchStage, HmwStage, ComingSoonStage } from './stages.js';
+import { GridStage, VoteHmwStage } from './stages2.js';
 
 function useNow(ms = 1000) {
   const [now, setNow] = useState(Date.now());
@@ -65,7 +66,7 @@ export function RoomView({ wsId, user }) {
   }
 
   const props = { w, data, me, user, step, isOrganizer, isResearcher };
-  const Stage = { intro: IntroStage, research: ResearchStage, hmw: HmwStage }[step.key] || ComingSoonStage;
+  const Stage = { intro: IntroStage, research: ResearchStage, hmw: HmwStage, grid: GridStage, vote_hmw: VoteHmwStage }[step.key] || ComingSoonStage;
 
   return html`
     <div class="room">
@@ -93,7 +94,7 @@ export function RoomView({ wsId, user }) {
             ${data.members.map((m) => html`
               <li key=${m.id} class=${cx(!m.joined_at && 'absent')}>
                 <${Avatar} name=${m.name} color=${m.color} size=${24} />
-                <span class="grow">${m.name}${me && m.id === me.id ? ' (you)' : ''}</span>
+                <span class="grow">${m.name}${me && m.id === me.id ? ' (you)' : ''}${m.is_synthetic ? html` <span class="pill pill-ai">AI</span>` : ''}</span>
                 <span class="muted small">${m.is_decider ? 'Decider' : m.role === 'participant' ? (DISCIPLINES[m.discipline] || '').replace('Product ', '') : ROLES[m.role]}</span>
               </li>`)}
           </ul>

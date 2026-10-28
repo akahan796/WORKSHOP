@@ -29,6 +29,9 @@ export const STEPS = [
     blurb: 'Review the prototype together and capture feedback.' },
 ];
 
+// Steps with phase <= BUILT_PHASE have their interactive stage.
+export const BUILT_PHASE = 2;
+
 export const STEP_BY_KEY = Object.fromEntries(STEPS.map((s) => [s.key, s]));
 
 export function defaultAgenda() {
