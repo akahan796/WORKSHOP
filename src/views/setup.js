@@ -1,0 +1,154 @@
+// Organizer workshop setup: details, introduction, agenda, people & invites, research.
+import { html, useState, navigate, nextColor, inviteUrl, DISCIPLINES, ROLES, cx, fmtDate } from '../lib.js';
+import { backend } from '../backend/index.js';
+import { STEPS, defaultAgenda, defaultIntro } from '../steps.js';
+import { useWorkshop } from '../useWorkshop.js';
+import { Field, SaveOnBlur, Avatar, useCopy, Empty } from './ui.js';
+import { ResearchManager } from './research.js';
+
+const TABS = [['details', 'Details'], ['intro', 'Introduction'], ['agenda', 'Agenda'], ['people', 'People & invites'], ['research', 'Research']];
+
+export function SetupView({ wsId, user }) {
+  const data = useWorkshop(wsId, user);
+  const [tab, setTab] = useState('details');
+  const { workshop: w } = data;
+
+  if (data.loading) return html`<main class="page"><p class="muted">Loading…</p></main>`;
+  if (!w) return html`<main class="page"><${Empty} title="Workshop not found" /></main>`;
+  if (!data.isOrganizer) return html`<main class="page"><${Empty} title="Only the organizer can set up this workshop" /></main>`;
+
+  const save = (patch) => backend.updateWorkshop(w.id, patch);
+
+  return html`
+    <main class="page">
+      <a class="back" href="#/">← All workshops</a>
+      <div class="page-head">
+        <div><h1>${w.title}</h1><p class="muted">${[w.project, fmtDate(w.starts_at)].filter(Boolean).join(' · ') || 'Workshop setup'}</p></div>
+        <div class="row">
+          <button class="btn btn-ghost" onClick=${() => confirm('Delete this workshop and everything in it?') && backend.deleteWorkshop(w.id).then(() => navigate('/'))}>Delete</button>
+          <button class="btn btn-primary" onClick=${() => navigate(`/w/${w.id}`)}>Open workshop room →</button>
+        </div>
+      </div>
+      <nav class="tabs">
+        ${TABS.map(([k, label]) => html`<button key=${k} class=${cx('tab', tab === k && 'tab-on')} onClick=${() => setTab(k)}>${label}${k === 'people' ? html` <span class="count">${data.members.length - 1}</span>` : ''}</button>`)}
+      </nav>
+      <section class="card setup-panel">
+        ${tab === 'details' && html`<${Details} w=${w} save=${save} />`}
+        ${tab === 'intro' && html`<${Intro} w=${w} save=${save} />`}
+        ${tab === 'agenda' && html`<${Agenda} w=${w} save=${save} />`}
+        ${tab === 'people' && html`<${People} w=${w} data=${data} />`}
+        ${tab === 'research' && html`<${ResearchManager} wsId=${w.id} research=${data.research} me=${data.me} canEdit=${true} />`}
+      </section>
+    </main>`;
+}
+
+function toLocalInput(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
+}
+
+function Details({ w, save }) {
+  return html`
+    <div class="form-grid">
+      <${Field} label="Workshop title"><${SaveOnBlur} value=${w.title} onSave=${(title) => save({ title })} /><//>
+      <${Field} label="Project / subject" hint="What the workshop is about, e.g. the product area."><${SaveOnBlur} value=${w.project} onSave=${(project) => save({ project })} /><//>
+      <${Field} label="Date & time">
+        <input type="datetime-local" value=${toLocalInput(w.starts_at)} onChange=${(e) => save({ starts_at: e.target.value ? new Date(e.target.value).toISOString() : null })} />
+      <//>
+      <div class="span-2"><${Field} label="Goal" hint="One or two sentences on what we want to leave with. Shown in the introduction and the invite email.">
+        <${SaveOnBlur} multiline value=${w.description} onSave=${(description) => save({ description })} />
+      <//></div>
+    </div>`;
+}
+
+function Intro({ w, save }) {
+  const intro = { ...defaultIntro(), ...w.intro };
+  const set = (k) => (v) => save({ intro: { ...intro, [k]: v } });
+  return html`
+    <div class="stack">
+      <p class="muted">This is what everyone sees in step 1. It's prefilled; edit it to fit your session.</p>
+      <${Field} label="About me (organizer intro)" hint="Who you are and your role in this workshop."><${SaveOnBlur} multiline value=${intro.welcome} onSave=${set('welcome')} /><//>
+      <${Field} label="Project background" hint="The problem space and why we're here."><${SaveOnBlur} multiline rows="4" value=${intro.background} onSave=${set('background')} /><//>
+      <${Field} label="Workshop overview"><${SaveOnBlur} multiline value=${intro.overview} onSave=${set('overview')} /><//>
+      <${Field} label="Ground rules" hint="One rule per line.">
+        <${SaveOnBlur} multiline rows="6" value=${(intro.rules || []).join('\n')} onSave=${(v) => set('rules')(v.split('\n').map((s) => s.trim()).filter(Boolean))} />
+      <//>
+      <${Field} label="What to expect"><${SaveOnBlur} multiline value=${intro.expectations} onSave=${set('expectations')} /><//>
+    </div>`;
+}
+
+function Agenda({ w, save }) {
+  const agenda = w.agenda && w.agenda.length ? w.agenda : defaultAgenda();
+  const update = (key, patch) => save({ agenda: agenda.map((a) => (a.key === key ? { ...a, ...patch } : a)) });
+  const total = agenda.filter((a) => a.enabled).reduce((n, a) => n + Number(a.minutes || 0), 0);
+  const byKey = Object.fromEntries(STEPS.map((s) => [s.key, s]));
+  return html`
+    <div class="stack">
+      <div class="row between"><p class="muted">Turn steps on or off and set how long each runs. Total: <b>${Math.floor(total / 60)}h ${total % 60}m</b></p></div>
+      <ol class="agenda-edit">
+        ${agenda.map((a, i) => { const s = byKey[a.key]; return html`
+          <li key=${a.key} class=${cx('agenda-row', !a.enabled && 'off')}>
+            <input type="checkbox" checked=${a.enabled} onChange=${(e) => update(a.key, { enabled: e.target.checked })} aria-label=${'Include ' + s.title} />
+            <span class="step-num">${i + 1}</span>
+            <div class="grow"><b>${s.title}</b>${s.phase > 1 && html` <span class="pill pill-soon">Coming in phase ${s.phase}</span>`}<div class="muted small">${s.blurb}</div></div>
+            <label class="minutes"><input type="number" min="1" max="240" value=${a.minutes} onChange=${(e) => update(a.key, { minutes: Number(e.target.value) })} /> min</label>
+          </li>`; })}
+      </ol>
+    </div>`;
+}
+
+function mailtoInvite(w, m, link) {
+  const subject = `You're invited: ${w.title}`;
+  const when = w.starts_at ? `\nWhen: ${fmtDate(w.starts_at)}` : '';
+  const body = `Hi ${m.name.split(' ')[0] || 'there'},\n\nYou're invited to join "${w.title}" as ${m.role === 'participant' ? 'a participant' : 'a ' + ROLES[m.role].toLowerCase()}.${when}\n\n${w.description || ''}\n\nJoin here (no account needed):\n${link}\n\nSee you there!`;
+  return `mailto:${encodeURIComponent(m.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function People({ w, data }) {
+  const [form, setForm] = useState({ name: '', email: '', role: 'participant', discipline: 'design' });
+  const [copied, copy] = useCopy();
+  const people = data.members.filter((m) => m.role !== 'organizer');
+
+  async function add(e) {
+    e.preventDefault();
+    await backend.addMember(w.id, { ...form, name: form.name.trim(), email: form.email.trim(),
+      discipline: form.role === 'participant' ? form.discipline : null, color: nextColor(data.members) });
+    setForm({ ...form, name: '', email: '' });
+  }
+
+  return html`
+    <div class="stack">
+      <p class="muted">Each person gets a personal guest link. It takes them straight to this workshop, with no account needed. <b>Send invite</b> opens a prefilled email in your mail app.</p>
+      <table class="table">
+        <thead><tr><th>Person</th><th>Role</th><th>Discipline</th><th title="The Decider votes in purple and makes the final call">Decider</th><th>Status</th><th>Invite</th><th></th></tr></thead>
+        <tbody>
+          ${people.map((m) => { const link = data.invites[m.id] ? inviteUrl(data.invites[m.id]) : ''; return html`
+            <tr key=${m.id}>
+              <td><div class="row"><${Avatar} name=${m.name} color=${m.color} /><div><div><b>${m.name || '(no name)'}</b></div><div class="muted small">${m.email}</div></div></div></td>
+              <td><select value=${m.role} onChange=${(e) => backend.updateMember(m.id, { role: e.target.value, discipline: e.target.value === 'participant' ? m.discipline || 'design' : null })}>
+                <option value="participant">Participant</option><option value="researcher">Researcher</option></select></td>
+              <td>${m.role === 'participant' ? html`<select value=${m.discipline || ''} onChange=${(e) => backend.updateMember(m.id, { discipline: e.target.value })}>
+                ${Object.entries(DISCIPLINES).map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}</select>` : html`<span class="muted">—</span>`}</td>
+              <td><input type="radio" name="decider" checked=${m.is_decider} onChange=${() => backend.updateMember(m.id, { is_decider: true })} aria-label=${'Make ' + m.name + ' the Decider'} /></td>
+              <td>${m.joined_at ? html`<span class="pill pill-live">Joined</span>` : html`<span class="pill">Invited</span>`}</td>
+              <td><div class="row nowrap">
+                <button class="btn btn-sm" disabled=${!link} onClick=${() => copy(link, m.id)}>${copied === m.id ? 'Copied ✓' : 'Copy link'}</button>
+                <a class=${cx('btn btn-sm', !m.email && 'disabled')} href=${m.email && link ? mailtoInvite(w, m, link) : undefined}>Send invite</a>
+              </div></td>
+              <td><button class="btn btn-ghost btn-sm" aria-label=${'Remove ' + m.name} onClick=${() => confirm(`Remove ${m.name}? Their stickies are removed too.`) && backend.removeMember(m.id)}>✕</button></td>
+            </tr>`; })}
+        </tbody>
+      </table>
+      ${!people.length && html`<p class="muted small">No one invited yet.</p>`}
+      <form class="add-person" onSubmit=${add}>
+        <input required placeholder="Full name" value=${form.name} onInput=${(e) => setForm({ ...form, name: e.target.value })} />
+        <input type="email" placeholder="Email" value=${form.email} onInput=${(e) => setForm({ ...form, email: e.target.value })} />
+        <select value=${form.role} onChange=${(e) => setForm({ ...form, role: e.target.value })}><option value="participant">Participant</option><option value="researcher">Researcher</option></select>
+        ${form.role === 'participant' && html`<select value=${form.discipline} onChange=${(e) => setForm({ ...form, discipline: e.target.value })}>
+          ${Object.entries(DISCIPLINES).map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}</select>`}
+        <button class="btn btn-primary">Add</button>
+      </form>
+      <div class="row"><button class="btn" disabled title="Coming in phase 2">✨ Generate synthetic participants</button><span class="muted small">Coming in phase 2: AI participants that fill empty seats.</span></div>
+    </div>`;
+}
