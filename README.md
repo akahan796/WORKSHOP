@@ -56,6 +56,10 @@ never reaches the browser. Only a workshop's organizer can call it.
 2. Edge Functions → **Deploy a new function** → **Via editor**. Name it `ai`,
    paste `supabase/functions/ai/index.ts`, and deploy.
 3. Edge Functions → **Secrets**: add `ANTHROPIC_API_KEY` (from console.anthropic.com).
+4. Optional: add an `AI_MODEL` secret to pick the model. The default is `claude-opus-5-5`
+   (best results, roughly $0.85 per workshop). `claude-haiku-5-5` costs roughly $0.02
+   per workshop, with somewhat less sharp results. Changing the secret takes effect
+   right away, with no redeploy.
 
 Without these steps the app still works; the AI buttons show a "not set up" message.
 Add `?demo` to the URL (e.g. `http://localhost:4650/?demo`) to practice with a

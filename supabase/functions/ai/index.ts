@@ -13,13 +13,18 @@
 //   synth_votes         dot votes from each AI participant
 //   decide_hmw          the AI Decider's final pick among HMW candidates
 //
-// Secret required (Edge Functions → Secrets): ANTHROPIC_API_KEY.
+// Secrets (Edge Functions → Secrets): ANTHROPIC_API_KEY (required);
+// AI_MODEL (optional, default claude-opus-5-5), e.g. claude-haiku-5-5 for a
+// much cheaper, somewhat less sharp model. Changing a secret needs no redeploy.
 // SUPABASE_URL / SUPABASE_ANON_KEY are provided by Supabase automatically.
 // ─────────────────────────────────────────────────────────────────────────────
 import Anthropic from "npm:@anthropic-ai/sdk";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
-const MODEL = "claude-opus-5-5";
+const MODEL = (Deno.env.get("AI_MODEL") || "claude-opus-5-5").trim();
+// Models that accept server-side refusal fallbacks. Others (e.g. Claude Haiku
+// 5.5) have none, so the parameter is left off their requests.
+const FALLBACK_MODELS = new Set(["claude-opus-5-5", "claude-opus-5", "claude-fable-5-1", "claude-sonnet-5-5"]);
 const anthropic = new Anthropic(); // reads ANTHROPIC_API_KEY
 
 const CORS = {
@@ -39,15 +44,15 @@ async function callTool(system: string, content: Anthropic.Beta.BetaContentBlock
   const response = await anthropic.beta.messages.create({
     model: MODEL,
     max_tokens: 16000,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default", // a declined request is retried server-side on Anthropic's recommended fallback model
+    // A declined request is retried server-side on Anthropic's recommended fallback model.
+    ...(FALLBACK_MODELS.has(MODEL) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
     output_config: { effort: "medium" },
     system: system + `\n\nRespond by calling the ${tool.name} tool exactly once.`,
     tools: [{ ...tool, strict: true }],
     tool_choice: { type: "auto" },
     messages: [{ role: "user", content }],
   } as Anthropic.Beta.MessageCreateParamsNonStreaming);
-  if (response.stop_reason === "refusal") throw new Error("The AI declined this request.");
+  if (response.stop_reason === "refusal") throw new Error("The AI declined this request. Try rewording the workshop details, or try again.");
   const block = response.content.find((b) => b.type === "tool_use" && b.name === tool.name);
   if (!block || block.type !== "tool_use") throw new Error("The AI didn't return a result. Try again.");
   return block.input as Record<string, any>;
@@ -273,6 +278,7 @@ Deno.serve(async (req) => {
 
     return json(await task(sb, ws, body));
   } catch (e) {
+    if (e instanceof Anthropic.NotFoundError) return json({ error: `Unknown AI model "${MODEL}". Check the AI_MODEL secret (e.g. claude-opus-5-5 or claude-haiku-5-5).` }, 500);
     if (e instanceof Anthropic.AuthenticationError) return json({ error: "The Anthropic API key is missing or invalid (Edge Function secret ANTHROPIC_API_KEY)." }, 500);
     // Billing problems arrive as a 400 whose message names the credit balance.
     if (e instanceof Anthropic.BadRequestError && /credit balance/i.test(e.message)) return json({ error: "The Anthropic account is out of credits. Add credits in the Anthropic Console (Plans & Billing), then try again." }, 402);
