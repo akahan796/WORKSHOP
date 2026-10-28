@@ -150,7 +150,7 @@ ${sections}<div id="menu"><b>Screens</b>${screens.map((n, i) => `<a onclick="go(
   revise_prototype(db, ws, body) {
     const n = (body.feedback || []).length;
     const note = `<div class="banner" style="background:#E3F5E8">Simulated revision: ${n} pieces of feedback noted (no AI, so the design itself is unchanged).</div>`;
-    return { html: String(body.html || '').replace(/<body([^>]*)>/i, (m) => m + note) };
+    return { html: String(body.html || '').replace(/<body([^>]*)>/i, (m) => m + note), summary: 'Simulated: feedback noted on the prototype.', applied: 1, skipped: 0 };
   },
 
   synth_feedback(db, ws) {

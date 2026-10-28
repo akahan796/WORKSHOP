@@ -50,7 +50,13 @@ const DISCIPLINES: Record<string, string> = { design: "Product Design", pm: "Pro
 // One Claude call that must answer through a single strict tool. Forced
 // tool_choice isn't available on Claude Opus 5.5, so the prompt names the tool
 // and `strict: true` keeps the arguments schema-valid.
-async function callTool(system: string, content: Anthropic.Beta.BetaContentBlockParam[], tool: { name: string; description: string; input_schema: Record<string, unknown> }, maxTokens = 16000, effort = "medium") {
+// Edge functions are stopped after about 150 s. Long calls get a deadline so they
+// fail with a clear message (and no retry) instead of being cut off mid-request.
+const TIME_BUDGET_MS = 135_000;
+const remaining = (startedAt?: number) => (startedAt ? Math.max(15_000, TIME_BUDGET_MS - (Date.now() - startedAt)) : undefined);
+const reqOptions = (startedAt?: number) => (startedAt ? { timeout: remaining(startedAt), maxRetries: 0 } : undefined);
+
+async function callTool(system: string, content: Anthropic.Beta.BetaContentBlockParam[], tool: { name: string; description: string; input_schema: Record<string, unknown> }, maxTokens = 16000, effort = "medium", startedAt?: number) {
   // Streamed (the SDK requires it for large max_tokens); finalMessage() returns the whole reply.
   const response = await anthropic.beta.messages.stream({
     model: MODEL,
@@ -63,7 +69,7 @@ async function callTool(system: string, content: Anthropic.Beta.BetaContentBlock
     tools: [{ ...tool, strict: true }],
     tool_choice: { type: "auto" },
     messages: [{ role: "user", content }],
-  } as Anthropic.Beta.MessageCreateParamsStreaming).finalMessage();
+  } as Anthropic.Beta.MessageCreateParamsStreaming, reqOptions(startedAt)).finalMessage();
   if (response.stop_reason === "max_tokens") throw new Error("The AI ran out of room before finishing. Try again.");
   if (response.stop_reason === "refusal") throw new Error("The AI declined this request. Try rewording the workshop details, or try again.");
   const block = response.content.find((b) => b.type === "tool_use" && b.name === tool.name);
@@ -73,7 +79,7 @@ async function callTool(system: string, content: Anthropic.Beta.BetaContentBlock
 
 // A Claude call whose answer is one self-contained HTML document (too large to
 // pass through a tool call comfortably). Returns the HTML, or throws.
-async function callHtml(system: string, content: Anthropic.Beta.BetaContentBlockParam[]) {
+async function callHtml(system: string, content: Anthropic.Beta.BetaContentBlockParam[], startedAt?: number) {
   const response = await anthropic.beta.messages.stream({
     model: MODEL,
     max_tokens: 32000,
@@ -81,7 +87,7 @@ async function callHtml(system: string, content: Anthropic.Beta.BetaContentBlock
     output_config: { effort: "low" }, // keeps generation inside the edge function's time limit
     system: system + "\n\nReply with only the complete HTML document, from <!doctype html> to </html>. No commentary, no code fences.",
     messages: [{ role: "user", content }],
-  } as Anthropic.Beta.MessageCreateParamsStreaming).finalMessage();
+  } as Anthropic.Beta.MessageCreateParamsStreaming, reqOptions(startedAt)).finalMessage();
   if (response.stop_reason === "max_tokens") throw new Error("The prototype was too large to finish. Try again, or simplify the flow.");
   if (response.stop_reason === "refusal") throw new Error("The AI declined this request. Try again.");
   const text = response.content.filter((b) => b.type === "text").map((b: any) => b.text).join("");
@@ -186,7 +192,7 @@ async function chosenSolution(sb: any, ws: any) {
 
 const flowText = (flow: any) => flow ? `User flow "${flow.title || ""}":\n${(flow.steps || []).map((s: any, i: number) => `${i + 1}. [${s.actor}] ${s.title}${s.screen ? ` (screen: ${s.screen})` : ""}: ${s.detail || ""}`).join("\n")}${(flow.details || []).length ? `\nImplementation details:\n${flow.details.map((d: any) => `- ${typeof d === "string" ? d : d.text}`).join("\n")}` : ""}` : "";
 
-const PROTOTYPE_RULES = "Build a clickable, high-fidelity prototype of a OneStream enterprise web app as ONE self-contained HTML file: inline CSS and vanilla JavaScript only, no external scripts, fonts, images or network requests. Use Arial, brand blue #0A5DFF, neutral greys, 8px radius cards, and realistic sample data for the product described. Show each screen of the flow, wired with working buttons and links that move between screens (show one screen at a time), plus a small fixed 'Screens' menu to jump to any screen. Keep it under about 600 lines.";
+const PROTOTYPE_RULES = "Build a clickable, high-fidelity prototype of a OneStream enterprise web app as ONE self-contained HTML file: inline CSS and vanilla JavaScript only, no external scripts, fonts, images or network requests. Use Arial, brand blue #0A5DFF, neutral greys, 8px radius cards, and realistic sample data for the product described. Show each screen of the flow, wired with working buttons and links that move between screens (show one screen at a time), plus a small fixed 'Screens' menu to jump to any screen. Keep it compact: under about 450 lines (roughly 25 KB) in total.";
 
 const SVG_RULES = 'Each sketch is a rough, low-fidelity UI wireframe drawn as one self-contained SVG: viewBox="0 0 320 240", white background rect, black and grey strokes, boxes for UI regions, and a few short text labels (font-family Arial, font-size 10–14). Keep each under about 30 elements. No images, scripts, links, or foreignObject.';
 
@@ -414,10 +420,26 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
       },
       32000,
     );
-    return {
-      title: out.title, summary: out.summary, based_on: out.based_on === "none" ? null : out.based_on,
-      frames: (out.frames || []).slice(0, 6).map((f: any) => ({ caption: f.caption, svg: cleanSvg(f.svg) })),
-    };
+    // Keep only frames whose drawing is usable; the runbook asks for at least 3.
+    const frames = (out.frames || []).map((f: any) => ({ caption: f.caption, svg: cleanSvg(f.svg) })).filter((f: any) => f.svg && f.caption).slice(0, 6);
+    if (frames.length < 3) {
+      const need = 3 - frames.length;
+      const more = await callTool(
+        SYSTEM + " You play one synthetic participant finishing their solution sketch.",
+        [{ type: "text", text: `${ctx.text}\n\nYou are:\n${personaList(members)}\n\nYour solution sketch "${out.title}": ${out.summary}\nFrames so far:\n${frames.map((f: any, i: number) => `${i + 1}. ${f.caption}`).join("\n") || "(none)"}\n\nAdd ${need} more frame(s) that continue this flow, each a picture plus a caption. ${SVG_RULES}` }],
+        {
+          name: "add_frames",
+          description: "Add the missing frames.",
+          input_schema: {
+            type: "object", additionalProperties: false, required: ["frames"],
+            properties: { frames: { type: "array", items: { type: "object", additionalProperties: false, required: ["caption", "svg"], properties: { caption: { type: "string" }, svg: { type: "string" } } } } },
+          },
+        },
+        16000,
+      );
+      for (const f of more.frames || []) { const svg = cleanSvg(f.svg); if (svg && f.caption && frames.length < 6) frames.push({ caption: f.caption, svg }); }
+    }
+    return { title: out.title, summary: out.summary, based_on: out.based_on === "none" ? null : out.based_on, frames };
   },
 
   async synth_comments(sb, ws, body) {
@@ -497,20 +519,44 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
     const html = await callHtml(
       SYSTEM + " You are a senior product designer who prototypes in code.",
       [...(sol?.images || []), { type: "text", text: `${ctx.text}\n\n${sol ? sol.text : ""}\n\n${flowText(body.flow)}\n\n${PROTOTYPE_RULES}` }],
+      body.__startedAt,
     );
     return { html };
   },
 
+  // Revisions come back as targeted find/replace edits rather than a whole new file:
+  // far less output, so they finish well inside the time limit.
   async revise_prototype(sb, ws, body) {
     const feedback: { kind: string; text: string }[] = body.feedback || [];
-    if (!body.html) throw new Error("There's no prototype to revise yet.");
+    const source = String(body.html || "");
+    if (!source) throw new Error("There's no prototype to revise yet.");
     if (!feedback.length) throw new Error("Add some feedback first.");
     const ctx = await workshopContext(sb, ws, false);
-    const html = await callHtml(
+    const out = await callTool(
       SYSTEM + " You are a senior product designer who prototypes in code, revising a prototype after a design review.",
-      [{ type: "text", text: `${ctx.text}\n\n${flowText(body.flow)}\n\nCurrent prototype:\n${String(body.html).slice(0, 120000)}\n\nDesign review feedback:\n${feedback.map((f) => `- [${f.kind}] ${f.text}`).join("\n")}\n\nRevise the prototype to address the "change" feedback and answer the questions in the design where you can, keeping what works. ${PROTOTYPE_RULES}` }],
+      [{ type: "text", text: `${ctx.text}\n\n${flowText(body.flow)}\n\nCurrent prototype (HTML):\n${source.slice(0, 150000)}\n\nDesign review feedback:\n${feedback.map((f) => `- [${f.kind}] ${f.text}`).join("\n")}\n\nRevise the prototype to address the "change" feedback, and answer the questions in the design where you can, keeping what works. Return targeted edits to the current HTML: each "find" must be copied exactly from the current HTML and occur in it only once (include enough surrounding text to be unique, ideally under 15 lines); "replace" is the new text. To add something, find a nearby existing snippet and replace it with that snippet plus the addition. Keep the same structure, styling and screen menu; no external resources. Also give a one-sentence summary of what changed.` }],
+      {
+        name: "edit_prototype",
+        description: "Apply targeted edits to the prototype HTML.",
+        input_schema: {
+          type: "object", additionalProperties: false, required: ["edits", "summary"],
+          properties: {
+            edits: { type: "array", items: { type: "object", additionalProperties: false, required: ["find", "replace"], properties: { find: { type: "string" }, replace: { type: "string" } } } },
+            summary: { type: "string" },
+          },
+        },
+      },
+      32000, "low", body.__startedAt,
     );
-    return { html };
+    let html = source, applied = 0, skipped = 0;
+    for (const e of out.edits || []) {
+      const at = e.find ? html.indexOf(e.find) : -1;
+      if (at < 0 || html.indexOf(e.find, at + 1) >= 0) { skipped++; continue; } // missing or ambiguous
+      html = html.slice(0, at) + e.replace + html.slice(at + e.find.length);
+      applied++;
+    }
+    if (!applied) throw new Error("The AI's changes didn't match the prototype. Try again.");
+    return { html, summary: out.summary, applied, skipped };
   },
 
   async synth_feedback(sb, ws, body) {
@@ -540,6 +586,7 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
+  const startedAt = Date.now();
   try {
     const authHeader = req.headers.get("Authorization") || "";
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -554,6 +601,7 @@ Deno.serve(async (req) => {
     const { data: ws } = await sb.from("workshops").select("*").eq("id", body.workshop_id).maybeSingle();
     if (!ws || ws.organizer_id !== user.id) return json({ error: "Only this workshop's organizer can use AI." }, 403);
 
+    body.__startedAt = startedAt;
     return json(await task(sb, ws, body));
   } catch (e) {
     if (e instanceof Anthropic.NotFoundError) return json({ error: `Unknown AI model "${MODEL}". Check the AI_MODEL secret (e.g. claude-opus-5-5 or claude-haiku-5-5).` }, 500);
@@ -561,6 +609,8 @@ Deno.serve(async (req) => {
     // Billing problems arrive as a 400 whose message names the credit balance.
     if (e instanceof Anthropic.BadRequestError && /credit balance/i.test(e.message)) return json({ error: "The Anthropic account is out of credits. Add credits in the Anthropic Console (Plans & Billing), then try again." }, 402);
     if (e instanceof Anthropic.RateLimitError) return json({ error: "The AI is rate limited right now. Try again in a minute." }, 429);
+    // In the TypeScript SDK APIConnectionError (incl. timeouts) is a subclass of APIError, so check it first.
+    if (e instanceof Anthropic.APIConnectionError) return json({ error: "The AI took too long to answer. Try again (a faster AI_MODEL, such as claude-haiku-5-5, also helps)." }, 504);
     if (e instanceof Anthropic.APIError) return json({ error: `AI error ${e.status}: ${e.message}` }, 502);
     return json({ error: (e as Error).message || String(e) }, 500);
   }

@@ -199,10 +199,11 @@ export async function generatePrototype(w, artifacts, flow) {
 }
 
 export async function revisePrototype(w, artifacts, proto, flow, feedback) {
-  const { html } = await runAi(w, 'revise_prototype', { html: proto.content, flow, feedback: feedback.map((f) => ({ kind: f.data?.kind || 'change', text: f.text })) });
+  const r = await runAi(w, 'revise_prototype', { html: proto.content, flow, feedback: feedback.map((f) => ({ kind: f.data?.kind || 'change', text: f.text })) });
   const version = nextVersion(artifacts, 'prototype');
-  await backend.saveArtifact(w.id, 'prototype', version, { content: html, data: { source: 'ai-revision', based_on: proto.version, notes: `Revised from v${proto.version} using ${feedback.length} pieces of feedback` } });
-  return `Prototype v${version} is ready.`;
+  const notes = `Revised from v${proto.version} (${feedback.length} notes)${r.summary ? ': ' + r.summary : ''}`;
+  await backend.saveArtifact(w.id, 'prototype', version, { content: r.html, data: { source: 'ai-revision', based_on: proto.version, notes, applied: r.applied, skipped: r.skipped } });
+  return `Prototype v${version} is ready${r.skipped ? ` (${r.applied} changes applied, ${r.skipped} skipped)` : ''}.`;
 }
 
 export async function synthFeedback(w, proto, flow) {
