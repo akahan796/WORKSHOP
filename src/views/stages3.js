@@ -13,7 +13,7 @@ function useAuthors(members) {
 }
 
 // Signed/object URLs for sketch files, fetched as paths appear.
-function useSketchUrls(paths) {
+export function useSketchUrls(paths) {
   const [urls, setUrls] = useState({});
   const key = paths.filter(Boolean).sort().join('|');
   useEffect(() => {
@@ -30,7 +30,7 @@ function useSketchUrls(paths) {
 const pad8 = (cells, ids = []) => Array.from({ length: 8 }, (_, i) => cells[i] || { id: ids[i] || uid(), file_path: null, caption: '' });
 const allCrazyCells = (sheets) => sheets.filter((x) => x.kind === 'crazy8').flatMap((x) => x.cells.map((c, i) => ({ ...c, member_id: x.member_id, index: i }))).filter((c) => c.file_path || c.caption);
 
-function ChosenHmw({ w, data }) {
+export function ChosenHmw({ w, data }) {
   const id = (w.step_state || {}).hmw_final?.sticky_id;
   const s = id && data.stickies.find((x) => x.id === id);
   return s
@@ -56,7 +56,7 @@ function SkillBox({ title, text, prompt }) {
     </div>`;
 }
 
-function Lightbox({ src, caption, onClose }) {
+export function Lightbox({ src, caption, onClose }) {
   return html`<${Modal} title=${caption || 'Sketch'} onClose=${onClose} wide><img class="lightbox-img" src=${src} alt=${caption || ''} /><//>`;
 }
 
@@ -309,7 +309,7 @@ export function SolutionStage({ w, data, me, isOrganizer }) {
     </div>`;
 }
 
-function SolutionCard({ x, authors, urls, data, onOpen, children, compact }) {
+export function SolutionCard({ x, authors, urls, data, onOpen, children, compact }) {
   const base = x.based_on && allCrazyCells(data.sheets).find((c) => c.id === x.based_on);
   return html`
     <article class=${cx('card solution-card', compact && 'compact')}>

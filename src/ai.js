@@ -14,8 +14,8 @@ async function runAi(w, task, body) {
     try { return await backend.ai(task, { workshop_id: w.id, ...body }); }
     catch (e) { throw new Error(e.message + ' Tip: to run without an AI API, set AI mode to Simulated in Setup → Details.'); }
   }
-  const members = await backend.listMembers(w.id);
-  return demoAi({ workshops: [w], members }, task, { workshop_id: w.id, ...body });
+  const [members, sheets, stickies] = await Promise.all([backend.listMembers(w.id), backend.listSheets(w.id), backend.listStickies(w.id)]);
+  return demoAi({ workshops: [w], members, sheets, stickies }, task, { workshop_id: w.id, ...body });
 }
 
 export const QUADRANTS = {
@@ -178,4 +178,35 @@ export async function synthComments(w, solutions, members) {
   });
   for (const c of comments) await backend.addSticky({ workshop_id: w.id, member_id: c.member_id, step: 'review', kind: 'comment', text: c.text, data: { sheet_id: c.sheet_id } });
   return `Added ${comments.length} comments.`;
+}
+
+// ── Phase 4: user flow, prototype, design review ──
+const withIds = (items) => (items || []).map((x) => (typeof x === 'string' ? { id: uid(), text: x } : { id: uid(), ...x }));
+
+export async function draftFlow(w) {
+  const f = await runAi(w, 'draft_flow', {});
+  await backend.saveArtifact(w.id, 'flow', 1, { data: { title: f.title, steps: withIds(f.steps), details: withIds(f.details), questions: withIds(f.questions), source: 'ai' } });
+  return `Drafted ${f.steps.length} steps.`;
+}
+
+const nextVersion = (artifacts, kind) => Math.max(0, ...artifacts.filter((a) => a.kind === kind).map((a) => a.version)) + 1;
+
+export async function generatePrototype(w, artifacts, flow) {
+  const { html } = await runAi(w, 'generate_prototype', { flow });
+  const version = nextVersion(artifacts, 'prototype');
+  await backend.saveArtifact(w.id, 'prototype', version, { content: html, data: { source: 'ai', notes: 'Generated from the user flow' } });
+  return `Prototype v${version} is ready.`;
+}
+
+export async function revisePrototype(w, artifacts, proto, flow, feedback) {
+  const { html } = await runAi(w, 'revise_prototype', { html: proto.content, flow, feedback: feedback.map((f) => ({ kind: f.data?.kind || 'change', text: f.text })) });
+  const version = nextVersion(artifacts, 'prototype');
+  await backend.saveArtifact(w.id, 'prototype', version, { content: html, data: { source: 'ai-revision', based_on: proto.version, notes: `Revised from v${proto.version} using ${feedback.length} pieces of feedback` } });
+  return `Prototype v${version} is ready.`;
+}
+
+export async function synthFeedback(w, proto, flow) {
+  const { feedback } = await runAi(w, 'synth_feedback', { html: proto.content, flow });
+  for (const f of feedback) await backend.addSticky({ workshop_id: w.id, member_id: f.member_id, step: 'design_review', kind: 'feedback', text: f.text, data: { kind: f.kind, version: proto.version } });
+  return `Added ${feedback.length} pieces of feedback.`;
 }

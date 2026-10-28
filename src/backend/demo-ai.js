@@ -107,6 +107,57 @@ const tasks = {
     return { comments: out };
   },
 
+  draft_flow(db, ws) {
+    const id = ws.step_state?.solution_final?.sheet_id;
+    const sheet = (db.sheets || []).find((x) => x.id === id);
+    if (!sheet) throw new Error('Choose a direction in the previous step first.');
+    const frames = sheet.cells.filter((c) => c.caption);
+    const steps = [
+      { actor: 'Preparer', title: 'Opens their reconciliation', detail: 'Lands on the reconciliation they own for this period.', screen: 'Reconciliation' },
+      ...frames.map((c, i) => ({ actor: i % 2 ? 'Reviewer' : 'Preparer', title: c.caption, detail: `From the solution sketch "${sheet.title}", frame ${i + 1}.`, screen: i === 0 ? 'Reconciliation' : i === frames.length - 1 ? 'Reviewer queue' : 'Blocker panel' })),
+      { actor: 'System', title: 'Records the change in the audit trail', detail: 'Every status change and comment is logged.', screen: 'Audit trail' },
+    ];
+    return {
+      title: `${sheet.title}: user flow`,
+      steps,
+      details: ['Which blocker types exist and who can set them', 'Permissions: who can resolve or override a blocker', 'Performance with thousands of reconciliations per period', 'How blockers appear in existing reports'],
+      questions: ['Should reviewers be notified immediately or in a daily digest?', 'Can a blocker be resolved without resubmitting?'],
+    };
+  },
+
+  generate_prototype(db, ws, body) {
+    const flow = body.flow || { title: 'Prototype', steps: [] };
+    const screens = [...new Set(flow.steps.map((s) => s.screen || 'Screen'))];
+    const esc = (t) => String(t || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const sections = screens.map((name, i) => {
+      const steps = flow.steps.filter((s) => (s.screen || 'Screen') === name);
+      return `<section class="screen" id="s${i}"${i ? ' hidden' : ''}><header><b>OneStream</b><span>${esc(ws.project || ws.title)}</span></header>
+<main><h1>${esc(name)}</h1><div class="cards">${steps.map((s) => `<div class="card"><span class="pill">${esc(s.actor)}</span><h3>${esc(s.title)}</h3><p>${esc(s.detail)}</p></div>`).join('')}</div>
+<div class="nav">${i ? `<button onclick="go(${i - 1})">← Back</button>` : '<span></span>'}${i < screens.length - 1 ? `<button class="primary" onclick="go(${i + 1})">Continue →</button>` : '<button class="primary" onclick="go(0)">Start over</button>'}</div></main></section>`;
+    }).join('\n');
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(flow.title)}</title><style>
+body{margin:0;font-family:Arial,sans-serif;background:#F4F5F7;color:#141414}header{display:flex;gap:16px;align-items:center;background:#fff;border-bottom:1px solid #E2E4E9;padding:12px 20px}
+main{max-width:960px;margin:24px auto;padding:0 20px}.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.card{background:#fff;border:1px solid #E2E4E9;border-radius:8px;padding:14px}
+.pill{font-size:11px;font-weight:700;background:#EEF3FF;color:#0A5DFF;border-radius:99px;padding:2px 8px}.nav{display:flex;justify-content:space-between;margin-top:20px}
+button{font:inherit;font-weight:700;border:1px solid #CDD1D8;background:#fff;border-radius:6px;padding:8px 14px;cursor:pointer}button.primary{background:#0A5DFF;border-color:#0A5DFF;color:#fff}
+#menu{position:fixed;right:12px;bottom:12px;background:#fff;border:1px solid #E2E4E9;border-radius:8px;padding:8px;font-size:12px}#menu a{display:block;color:#0A5DFF;cursor:pointer;padding:2px 0}
+.banner{background:#FFF6DA;padding:6px 20px;font-size:12px}</style></head><body><div class="banner">Simulated prototype generated from the user flow (no AI).</div>
+${sections}<div id="menu"><b>Screens</b>${screens.map((n, i) => `<a onclick="go(${i})">${esc(n)}</a>`).join('')}</div>
+<script>function go(i){document.querySelectorAll('.screen').forEach(function(s,j){s.hidden=j!==i});scrollTo(0,0)}</script></body></html>`;
+    return { html };
+  },
+
+  revise_prototype(db, ws, body) {
+    const n = (body.feedback || []).length;
+    const note = `<div class="banner" style="background:#E3F5E8">Simulated revision: ${n} pieces of feedback noted (no AI, so the design itself is unchanged).</div>`;
+    return { html: String(body.html || '').replace(/<body([^>]*)>/i, (m) => m + note) };
+  },
+
+  synth_feedback(db, ws) {
+    const lines = { works: 'The blocker list is clear and easy to act on.', change: 'Show the blocker count in the queue so reviewers can sort by it.', question: 'What happens when a blocker owner is out of office?' };
+    return { feedback: synth(db, ws).flatMap((m, i) => [['works', lines.works], [i % 2 ? 'question' : 'change', i % 2 ? lines.question : lines.change]].map(([kind, text]) => ({ member_id: m.id, kind, text }))) };
+  },
+
   decide_solution(db, ws, body) {
     const top = (body.candidates || [])[0];
     if (!top) throw new Error('No solution sketches to decide between.');

@@ -30,7 +30,7 @@ export const STEPS = [
 ];
 
 // Steps with phase <= BUILT_PHASE have their interactive stage.
-export const BUILT_PHASE = 3;
+export const BUILT_PHASE = 4;
 
 export const STEP_BY_KEY = Object.fromEntries(STEPS.map((s) => [s.key, s]));
 

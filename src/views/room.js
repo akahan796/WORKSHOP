@@ -9,6 +9,7 @@ import { ResearchManager } from './research.js';
 import { IntroStage, ResearchStage, HmwStage, ComingSoonStage } from './stages.js';
 import { GridStage, VoteHmwStage } from './stages2.js';
 import { Crazy8Stage, Share8Stage, SolutionStage, ReviewStage, VoteSolutionStage } from './stages3.js';
+import { FlowStage, PrototypeStage, DesignReviewStage, ReleasedStage } from './stages4.js';
 import { isSimulated } from '../ai.js';
 
 function useNow(ms = 1000) {
@@ -69,7 +70,12 @@ export function RoomView({ wsId, user }) {
 
   const props = { w, data, me, user, step, isOrganizer, isResearcher };
   const Stage = { intro: IntroStage, research: ResearchStage, hmw: HmwStage, grid: GridStage, vote_hmw: VoteHmwStage,
-    crazy8: Crazy8Stage, share8: Share8Stage, solution: SolutionStage, review: ReviewStage, vote_solution: VoteSolutionStage }[step.key] || ComingSoonStage;
+    crazy8: Crazy8Stage, share8: Share8Stage, solution: SolutionStage, review: ReviewStage, vote_solution: VoteSolutionStage,
+    flow: FlowStage, prototype: PrototypeStage, design_review: DesignReviewStage }[step.key] || ComingSoonStage;
+  // Participants released after the flow step see a thank-you screen from then on.
+  const flowIdx = steps.findIndex((s) => s.key === 'flow');
+  const released = me && ((w.step_state || {}).released || []).includes(me.id) && flowIdx >= 0 && idx > flowIdx;
+  const StageToShow = released ? ReleasedStage : Stage;
 
   return html`
     <div class="room">
@@ -103,9 +109,10 @@ export function RoomView({ wsId, user }) {
               </li>`)}
           </ul>
           ${(isOrganizer || isResearcher) && html`<button class="btn btn-sm" onClick=${() => setShowResearch(true)}>Manage research decks</button>`}
+          <a class="btn btn-sm btn-ghost" href=${`#/w/${w.id}/summary`}>Workshop summary</a>
           ${isOrganizer && html`<button class="btn btn-sm btn-ghost" onClick=${() => navigate(`/w/${w.id}/setup`)}>Workshop setup</button>`}
         </aside>
-        <main class="stage"><${Stage} ...${props} /></main>
+        <main class="stage"><${StageToShow} ...${props} /></main>
       </div>
       ${isOrganizer && html`
         <footer class="control-bar">

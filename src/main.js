@@ -12,8 +12,9 @@ import { SetupView } from './views/setup.js';
 import { JoinView } from './views/join.js';
 import { RoomView } from './views/room.js';
 import { Header } from './views/ui.js';
+import { SummaryView } from './views/summary.js';
 
-console.log('Workshop AI build 2026-10-28-n · backend:', backend.mode);
+console.log('Workshop AI build 2026-10-28-o · backend:', backend.mode);
 
 function useHash() {
   const [hash, setHash] = useState(location.hash.slice(1) || '/');
@@ -32,6 +33,10 @@ function App() {
 
   let m;
   if ((m = path.match(/^\/join\/([\w-]+)/))) return html`<${JoinView} token=${m[1]} user=${user} />`;
+  if ((m = path.match(/^\/w\/([\w-]+)\/summary/))) {
+    if (!user) return html`<${Header} user=${user} /><${AuthView} />`;
+    return html`<${Header} user=${user} /><${SummaryView} wsId=${m[1]} user=${user} />`;
+  }
   if ((m = path.match(/^\/w\/([\w-]+)$/))) {
     if (!user) return html`<${Header} user=${user} /><${AuthView} />`;
     return html`<${RoomView} wsId=${m[1]} user=${user} />`;

@@ -8,7 +8,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 // let the organizer's session leak into guest tabs (and vice versa).
 const GUEST_KEY = 'wai_guest_storage_key';
 const urlCache = {}; // sketch path → { url, exp }
-const LIVE_TABLES = ['workshops', 'members', 'research', 'stickies', 'votes', 'sheets'];
+const LIVE_TABLES = ['workshops', 'members', 'research', 'stickies', 'votes', 'sheets', 'artifacts'];
 
 export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
   let user = null;
@@ -141,6 +141,16 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
         { workshop_id: wsId, member_id: memberId, kind, ...patch, updated_at: new Date().toISOString() },
         { onConflict: 'workshop_id,member_id,kind' }).select().single());
     },
+    async listArtifacts(wsId) {
+      const { data, error } = await sb.from('artifacts').select('*').eq('workshop_id', wsId).order('version');
+      if (error) { console.warn('artifacts unavailable (run supabase/migrations/004_phase4.sql):', error.message); return []; }
+      return data;
+    },
+    async saveArtifact(wsId, kind, version, patch) {
+      return ok(await sb.from('artifacts').upsert(
+        { workshop_id: wsId, kind, version, ...patch, updated_at: new Date().toISOString() },
+        { onConflict: 'workshop_id,kind,version' }).select().single());
+    },
     async uploadSketch(wsId, memberId, blob, ext) {
       const path = `${wsId}/${memberId}/${crypto.randomUUID()}.${ext}`;
       ok(await sb.storage.from('sketches').upload(path, blob, { contentType: blob.type || undefined }));
@@ -203,7 +213,7 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
     addMember: ['members'], updateMember: ['members'], removeMember: ['members', 'stickies', 'votes', 'sheets'], claimInvite: ['members'],
     uploadResearch: ['research'], deleteResearch: ['research'],
     addSticky: ['stickies'], updateSticky: ['stickies'], deleteSticky: ['stickies', 'votes'],
-    addVotes: ['votes'], deleteVote: ['votes'], deleteVotes: ['votes'], saveSheet: ['sheets'],
+    addVotes: ['votes'], deleteVote: ['votes'], deleteVotes: ['votes'], saveSheet: ['sheets'], saveArtifact: ['artifacts'],
   };
   for (const [name, tables] of Object.entries(WRITES)) {
     const write = api[name];

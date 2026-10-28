@@ -56,7 +56,7 @@ Every screen follows `workshops.current_step` in real time.
 1. **Foundation (this build)**: auth, workshop setup and intro content, agenda, roster and invite links, guest join, live room with step sync and timers, steps 1 to 3. Includes a local **demo mode** (no Supabase needed; tabs sync through BroadcastChannel) for previewing and testing.
 2. **Built 2026-10-28:** Impact/Effort grid with AI placement, HMW dot voting with the Decider (purple, 2× weight; human or AI final call), synthetic participants, and the Claude edge function (`supabase/functions/ai`). Still open from phase 2: emailed invites (Resend).
 3. **Built 2026-10-28:** Crazy 8s, share-out with per-sketch votes, solution sketches, review with comments, solution voting (two rounds, Decider). Migration `003_phase3.sql`.
-4. AI user flow, AI prototype generation, design review, workshop export.
+4. **Built 2026-10-28:** AI user flow (editable, notes, participant release), AI prototype (sandboxed HTML, versions, upload), design review with AI revision, printable workshop summary. Migration `004_phase4.sql`.
 
 ## Setup checklist (one-time, user-side)
 

@@ -12,7 +12,7 @@ const listeners = new Set();
 const authListeners = new Set();
 const urlCache = {}; // file path → object URL
 
-const empty = () => ({ users: [], workshops: [], members: [], invites: [], research: [], stickies: [], votes: [], sheets: [] });
+const empty = () => ({ users: [], workshops: [], members: [], invites: [], research: [], stickies: [], votes: [], sheets: [], artifacts: [] });
 const load = () => { try { return { ...empty(), ...JSON.parse(localStorage.getItem(DB_KEY) || '{}') }; } catch { return empty(); } };
 const now = () => new Date().toISOString();
 
@@ -110,7 +110,7 @@ export function createDemoBackend() {
     async deleteWorkshop(id) {
       write((db) => {
         db.workshops = db.workshops.filter((w) => w.id !== id);
-        for (const t of ['members', 'invites', 'research', 'stickies', 'votes', 'sheets']) db[t] = db[t].filter((r) => r.workshop_id !== id);
+        for (const t of ['members', 'invites', 'research', 'stickies', 'votes', 'sheets', 'artifacts']) db[t] = db[t].filter((r) => r.workshop_id !== id);
       }, 'workshops');
     },
     async setDecision(id, key, value) { return this.setStepState(id, { [key]: value }); },
@@ -236,6 +236,16 @@ export function createDemoBackend() {
         Object.assign(x, patch, { updated_at: now() });
         return x;
       }, 'sheets');
+    },
+    async listArtifacts(wsId) { return load().artifacts.filter((x) => x.workshop_id === wsId).sort((a, b) => a.version - b.version); },
+    // Save a version of the flow or prototype: same version updates it, a new one is added.
+    async saveArtifact(wsId, kind, version, patch) {
+      return write((db) => {
+        let x = db.artifacts.find((r) => r.workshop_id === wsId && r.kind === kind && r.version === version);
+        if (!x) { x = { id: uid(), workshop_id: wsId, kind, version, data: {}, content: '', created_at: now() }; db.artifacts.push(x); }
+        Object.assign(x, patch, { updated_at: now() });
+        return x;
+      }, 'artifacts');
     },
     async uploadSketch(wsId, memberId, blob, ext) {
       const path = `${wsId}/${memberId}/${uid()}.${ext}`;

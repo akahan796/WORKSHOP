@@ -16,6 +16,10 @@
 //   synth_solution      one AI participant's solution sketch (title, summary, 3–4 SVG frames)
 //   synth_comments      AI participants' review comments on solution sketches
 //   decide_solution     the AI Decider's final pick of a solution direction
+//   draft_flow          the user flow for the chosen direction (steps, details, questions)
+//   generate_prototype  a clickable, self-contained HTML prototype of the flow
+//   revise_prototype    a new prototype version that addresses review feedback
+//   synth_feedback      AI participants' design review feedback
 // synth_votes takes `round` ('hmw' | 'crazy8' | 'solution'); sketch rounds
 // send Claude the uploaded sketch images.
 //
@@ -46,14 +50,14 @@ const DISCIPLINES: Record<string, string> = { design: "Product Design", pm: "Pro
 // One Claude call that must answer through a single strict tool. Forced
 // tool_choice isn't available on Claude Opus 5.5, so the prompt names the tool
 // and `strict: true` keeps the arguments schema-valid.
-async function callTool(system: string, content: Anthropic.Beta.BetaContentBlockParam[], tool: { name: string; description: string; input_schema: Record<string, unknown> }, maxTokens = 16000) {
+async function callTool(system: string, content: Anthropic.Beta.BetaContentBlockParam[], tool: { name: string; description: string; input_schema: Record<string, unknown> }, maxTokens = 16000, effort = "medium") {
   // Streamed (the SDK requires it for large max_tokens); finalMessage() returns the whole reply.
   const response = await anthropic.beta.messages.stream({
     model: MODEL,
     max_tokens: maxTokens,
     // A declined request is retried server-side on Anthropic's recommended fallback model.
     ...(FALLBACK_MODELS.has(MODEL) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
-    output_config: { effort: "medium" },
+    output_config: { effort },
     system: system + `\n\nRespond by calling the ${tool.name} tool exactly once.`,
     // No eager_input_streaming: nothing here reads partial tool input, and leaving it off keeps strict validation.
     tools: [{ ...tool, strict: true }],
@@ -65,6 +69,25 @@ async function callTool(system: string, content: Anthropic.Beta.BetaContentBlock
   const block = response.content.find((b) => b.type === "tool_use" && b.name === tool.name);
   if (!block || block.type !== "tool_use" || !block.input || typeof block.input !== "object") throw new Error("The AI didn't return a result. Try again.");
   return block.input as Record<string, any>;
+}
+
+// A Claude call whose answer is one self-contained HTML document (too large to
+// pass through a tool call comfortably). Returns the HTML, or throws.
+async function callHtml(system: string, content: Anthropic.Beta.BetaContentBlockParam[]) {
+  const response = await anthropic.beta.messages.stream({
+    model: MODEL,
+    max_tokens: 32000,
+    ...(FALLBACK_MODELS.has(MODEL) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
+    output_config: { effort: "low" }, // keeps generation inside the edge function's time limit
+    system: system + "\n\nReply with only the complete HTML document, from <!doctype html> to </html>. No commentary, no code fences.",
+    messages: [{ role: "user", content }],
+  } as Anthropic.Beta.MessageCreateParamsStreaming).finalMessage();
+  if (response.stop_reason === "max_tokens") throw new Error("The prototype was too large to finish. Try again, or simplify the flow.");
+  if (response.stop_reason === "refusal") throw new Error("The AI declined this request. Try again.");
+  const text = response.content.filter((b) => b.type === "text").map((b: any) => b.text).join("");
+  const start = text.search(/<!doctype html|<html/i), end = text.toLowerCase().lastIndexOf("</html>");
+  if (start < 0 || end < 0) throw new Error("The AI didn't return a complete prototype. Try again.");
+  return text.slice(start, end + 7);
 }
 
 function base64(bytes: Uint8Array) {
@@ -146,6 +169,24 @@ function cleanSvg(svg: string) {
   if (!/xmlns=/.test(s)) s = s.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
   return s.length < 60000 ? s : null;
 }
+
+// The direction the group chose (solution_final), with its frames and review comments.
+async function chosenSolution(sb: any, ws: any) {
+  const id = ws.step_state?.solution_final?.sheet_id;
+  if (!id) return null;
+  const { data: sheet } = await sb.from("sheets").select("*").eq("id", id).maybeSingle();
+  if (!sheet) return null;
+  const { data: author } = await sb.from("members").select("name").eq("id", sheet.member_id).maybeSingle();
+  const { data: comments } = await sb.from("stickies").select("text, data").eq("workshop_id", ws.id).eq("step", "review");
+  const notes = (comments || []).filter((c: any) => c.data?.sheet_id === id).map((c: any) => c.text);
+  const text = `Chosen direction: "${sheet.title}" by ${author?.name || "a participant"}.\n${sheet.summary}\nFrames:\n${sheet.cells.map((c: any, i: number) => `${i + 1}. ${c.caption}`).join("\n")}${notes.length ? `\nReview comments on the sketches:\n${notes.map((n: string) => `- ${n}`).join("\n")}` : ""}${ws.step_state?.solution_final?.rationale ? `\nWhy it was chosen: ${ws.step_state.solution_final.rationale}` : ""}`;
+  const images = await sketchImages(sb, [{ id: sheet.id, label: `"${sheet.title}"`, image_paths: sheet.cells.map((c: any) => c.file_path).filter(Boolean) }], 8);
+  return { sheet, text, images };
+}
+
+const flowText = (flow: any) => flow ? `User flow "${flow.title || ""}":\n${(flow.steps || []).map((s: any, i: number) => `${i + 1}. [${s.actor}] ${s.title}${s.screen ? ` (screen: ${s.screen})` : ""}: ${s.detail || ""}`).join("\n")}${(flow.details || []).length ? `\nImplementation details:\n${flow.details.map((d: any) => `- ${typeof d === "string" ? d : d.text}`).join("\n")}` : ""}` : "";
+
+const PROTOTYPE_RULES = "Build a clickable, high-fidelity prototype of a OneStream enterprise web app as ONE self-contained HTML file: inline CSS and vanilla JavaScript only, no external scripts, fonts, images or network requests. Use Arial, brand blue #0A5DFF, neutral greys, 8px radius cards, and realistic sample data for the product described. Show each screen of the flow, wired with working buttons and links that move between screens (show one screen at a time), plus a small fixed 'Screens' menu to jump to any screen. Keep it under about 600 lines.";
 
 const SVG_RULES = 'Each sketch is a rough, low-fidelity UI wireframe drawn as one self-contained SVG: viewBox="0 0 320 240", white background rect, black and grey strokes, boxes for UI regions, and a few short text labels (font-family Arial, font-size 10–14). Keep each under about 30 elements. No images, scripts, links, or foreignObject.';
 
@@ -424,6 +465,75 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
       },
     );
     return { sheet_id: out.sheet_id, rationale: out.rationale };
+  },
+
+  async draft_flow(sb, ws) {
+    const sol = await chosenSolution(sb, ws);
+    if (!sol) throw new Error("Choose a direction in the previous step first.");
+    const ctx = await workshopContext(sb, ws, false);
+    const out = await callTool(
+      SYSTEM + " You map the user flow for the solution direction the group chose, as the starting point for the group's design-details discussion.",
+      [...sol.images, { type: "text", text: `${ctx.text}\n\n${sol.text}\n\nDraft the end-to-end user flow for this direction: 6–12 steps in order, each with the actor (a user role or "System"), a short title, one sentence of detail, and the screen it happens on. Then list 4–8 implementation details the team should agree on (data, states, edge cases, permissions, performance) and 2–5 open questions.` }],
+      {
+        name: "record_flow",
+        description: "Record the user flow.",
+        input_schema: {
+          type: "object", additionalProperties: false, required: ["title", "steps", "details", "questions"],
+          properties: {
+            title: { type: "string" },
+            steps: { type: "array", items: { type: "object", additionalProperties: false, required: ["actor", "title", "detail", "screen"], properties: { actor: { type: "string" }, title: { type: "string" }, detail: { type: "string" }, screen: { type: "string" } } } },
+            details: { type: "array", items: { type: "string" } },
+            questions: { type: "array", items: { type: "string" } },
+          },
+        },
+      },
+    );
+    return out;
+  },
+
+  async generate_prototype(sb, ws, body) {
+    const sol = await chosenSolution(sb, ws);
+    const ctx = await workshopContext(sb, ws, false);
+    const html = await callHtml(
+      SYSTEM + " You are a senior product designer who prototypes in code.",
+      [...(sol?.images || []), { type: "text", text: `${ctx.text}\n\n${sol ? sol.text : ""}\n\n${flowText(body.flow)}\n\n${PROTOTYPE_RULES}` }],
+    );
+    return { html };
+  },
+
+  async revise_prototype(sb, ws, body) {
+    const feedback: { kind: string; text: string }[] = body.feedback || [];
+    if (!body.html) throw new Error("There's no prototype to revise yet.");
+    if (!feedback.length) throw new Error("Add some feedback first.");
+    const ctx = await workshopContext(sb, ws, false);
+    const html = await callHtml(
+      SYSTEM + " You are a senior product designer who prototypes in code, revising a prototype after a design review.",
+      [{ type: "text", text: `${ctx.text}\n\n${flowText(body.flow)}\n\nCurrent prototype:\n${String(body.html).slice(0, 120000)}\n\nDesign review feedback:\n${feedback.map((f) => `- [${f.kind}] ${f.text}`).join("\n")}\n\nRevise the prototype to address the "change" feedback and answer the questions in the design where you can, keeping what works. ${PROTOTYPE_RULES}` }],
+    );
+    return { html };
+  },
+
+  async synth_feedback(sb, ws, body) {
+    const members = await synthMembers(sb, ws.id);
+    if (!members.length || !body.html) return { feedback: [] };
+    const ctx = await workshopContext(sb, ws, false);
+    const out = await callTool(
+      SYSTEM + " You play each synthetic participant in the design review of the prototype the workshop produced.",
+      [{ type: "text", text: `${ctx.text}\n\n${flowText(body.flow)}\n\nPrototype source (HTML):\n${String(body.html).slice(0, 60000)}\n\nFor each participant below, give 2–3 short pieces of feedback (under 30 words each) from their perspective. Kinds: works (what works), change (what to change), question.\n\nParticipants:\n${personaList(members)}` }],
+      {
+        name: "add_feedback",
+        description: "Add each participant's design review feedback.",
+        input_schema: {
+          type: "object", additionalProperties: false, required: ["feedback"],
+          properties: { feedback: { type: "array", items: {
+            type: "object", additionalProperties: false, required: ["member_id", "kind", "text"],
+            properties: { member_id: { type: "string" }, kind: { type: "string", enum: ["works", "change", "question"] }, text: { type: "string" } },
+          } } },
+        },
+      },
+    );
+    const ids = new Set(members.map((m: any) => m.id));
+    return { feedback: (out.feedback || []).filter((f: any) => ids.has(f.member_id)) };
   },
 };
 
