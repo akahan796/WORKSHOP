@@ -163,7 +163,8 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
       if (error) {
         let msg = error.message;
         try { const j = await error.context.json(); if (j && j.error) msg = j.error; } catch {}
-        if (/Failed to send|404|not found/i.test(msg)) msg = 'The AI service isn\'t set up yet: deploy the "ai" edge function and add the ANTHROPIC_API_KEY secret (see README).';
+        if (/^Unknown task/.test(msg)) msg = 'The deployed AI function is out of date. In Supabase → Edge Functions → ai, paste the latest supabase/functions/ai/index.ts and deploy.';
+        else if (/Failed to send|404|not found/i.test(msg)) msg = 'The AI service isn\'t set up yet: deploy the "ai" edge function and add the ANTHROPIC_API_KEY secret (see README).';
         throw new Error(msg);
       }
       return data;
