@@ -8,6 +8,7 @@ import { Header, Avatar, Empty, Modal } from './ui.js';
 import { ResearchManager } from './research.js';
 import { IntroStage, ResearchStage, HmwStage, ComingSoonStage } from './stages.js';
 import { GridStage, VoteHmwStage } from './stages2.js';
+import { Crazy8Stage, Share8Stage, SolutionStage, ReviewStage, VoteSolutionStage } from './stages3.js';
 import { isSimulated } from '../ai.js';
 
 function useNow(ms = 1000) {
@@ -67,7 +68,8 @@ export function RoomView({ wsId, user }) {
   }
 
   const props = { w, data, me, user, step, isOrganizer, isResearcher };
-  const Stage = { intro: IntroStage, research: ResearchStage, hmw: HmwStage, grid: GridStage, vote_hmw: VoteHmwStage }[step.key] || ComingSoonStage;
+  const Stage = { intro: IntroStage, research: ResearchStage, hmw: HmwStage, grid: GridStage, vote_hmw: VoteHmwStage,
+    crazy8: Crazy8Stage, share8: Share8Stage, solution: SolutionStage, review: ReviewStage, vote_solution: VoteSolutionStage }[step.key] || ComingSoonStage;
 
   return html`
     <div class="room">

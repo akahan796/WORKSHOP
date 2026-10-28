@@ -10,8 +10,9 @@ const SESSION_KEY = 'wai_demo_session';
 const channel = 'BroadcastChannel' in window ? new BroadcastChannel('wai_demo') : null;
 const listeners = new Set();
 const authListeners = new Set();
+const urlCache = {}; // file path → object URL
 
-const empty = () => ({ users: [], workshops: [], members: [], invites: [], research: [], stickies: [], votes: [] });
+const empty = () => ({ users: [], workshops: [], members: [], invites: [], research: [], stickies: [], votes: [], sheets: [] });
 const load = () => { try { return { ...empty(), ...JSON.parse(localStorage.getItem(DB_KEY) || '{}') }; } catch { return empty(); } };
 const now = () => new Date().toISOString();
 
@@ -109,7 +110,7 @@ export function createDemoBackend() {
     async deleteWorkshop(id) {
       write((db) => {
         db.workshops = db.workshops.filter((w) => w.id !== id);
-        for (const t of ['members', 'invites', 'research', 'stickies', 'votes']) db[t] = db[t].filter((r) => r.workshop_id !== id);
+        for (const t of ['members', 'invites', 'research', 'stickies', 'votes', 'sheets']) db[t] = db[t].filter((r) => r.workshop_id !== id);
       }, 'workshops');
     },
     async setDecision(id, key, value) { return this.setStepState(id, { [key]: value }); },
@@ -143,6 +144,7 @@ export function createDemoBackend() {
         db.invites = db.invites.filter((i) => i.member_id !== id);
         db.stickies = db.stickies.filter((s) => s.member_id !== id);
         db.votes = db.votes.filter((v) => v.member_id !== id);
+        db.sheets = db.sheets.filter((x) => x.member_id !== id);
       }, 'members');
     },
     async listInvites(wsId) {
@@ -221,6 +223,33 @@ export function createDemoBackend() {
     },
 
     async ai() { throw new Error('Demo mode uses simulated AI.'); },
+
+    async listSheets(wsId) { return load().sheets.filter((x) => x.workshop_id === wsId); },
+    // Create or update the member's sheet of this kind (one per member per kind).
+    async saveSheet(wsId, memberId, kind, patch) {
+      return write((db) => {
+        let x = db.sheets.find((r) => r.workshop_id === wsId && r.member_id === memberId && r.kind === kind);
+        if (!x) {
+          x = { id: uid(), workshop_id: wsId, member_id: memberId, kind, title: '', summary: '', based_on: null, cells: [], ready: false, created_at: now() };
+          db.sheets.push(x);
+        }
+        Object.assign(x, patch, { updated_at: now() });
+        return x;
+      }, 'sheets');
+    },
+    async uploadSketch(wsId, memberId, blob, ext) {
+      const path = `${wsId}/${memberId}/${uid()}.${ext}`;
+      await putFile(path, blob);
+      return path;
+    },
+    async sketchUrls(paths) {
+      const out = {};
+      for (const p of paths) {
+        if (!urlCache[p]) { const b = await getFile(p); if (b) urlCache[p] = URL.createObjectURL(b); }
+        if (urlCache[p]) out[p] = urlCache[p];
+      }
+      return out;
+    },
 
     subscribe(wsId, fn) {
       const handler = (table) => fn(table);

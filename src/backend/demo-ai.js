@@ -79,6 +79,36 @@ const tasks = {
     };
   },
 
+  synth_crazy8(db, ws, body) {
+    const m = db.members.find((x) => x.id === body.member_id);
+    const off = Math.floor(hash(m ? m.id : '') * 8);
+    return { cells: IDEAS.map((_, i) => { const idea = IDEAS[(i + off) % 8]; return { caption: idea, svg: wireframe((i + off) % 8, idea) }; }) };
+  },
+
+  synth_solution(db, ws, body) {
+    const ideas = (body.ideas || []).slice().sort((a, b) => (b.votes || 0) - (a.votes || 0));
+    const pick = ideas[Math.floor(hash(body.member_id) * Math.min(3, ideas.length || 1))];
+    const name = pick ? pick.caption : 'Reviewer status hub';
+    const steps = ['Reviewer opens the hub and sees what needs attention', 'Opens an item; blockers and documents are on one screen', 'Requests the missing document; the preparer is notified'];
+    return { title: name, summary: `Simulated solution building on "${name}". Reviewers see what's blocked, act on it in place, and the preparer gets a clear request.`, based_on: pick ? pick.id : null, frames: steps.map((c, i) => ({ caption: c, svg: wireframe([0, 3, 5][i], c.split(' ').slice(0, 3).join(' ')) })) };
+  },
+
+  synth_comments(db, ws, body) {
+    const lines = ['Love that blockers are visible without opening each item.', 'How does this scale to thousands of items in one period?', 'Could the request-docs step reuse the existing notification service?'];
+    const out = [];
+    synth(db, ws).forEach((m, i) => {
+      const target = (body.solutions || []).find((x, j) => x.member_id !== m.id && (j + i) % 2 === 0) || (body.solutions || []).find((x) => x.member_id !== m.id);
+      if (target) out.push({ member_id: m.id, sheet_id: target.id, text: lines[i % lines.length] });
+    });
+    return { comments: out };
+  },
+
+  decide_solution(db, ws, body) {
+    const top = (body.candidates || [])[0];
+    if (!top) throw new Error('No solution sketches to decide between.');
+    return { sheet_id: top.id, rationale: `Simulated AI decision: this sketch had the strongest support (score ${top.score}), so it moves into design.` };
+  },
+
   decide_hmw(db, ws, body) {
     const top = (body.candidates || [])[0];
     if (!top) throw new Error('No candidates to decide between.');
@@ -86,6 +116,23 @@ const tasks = {
     return { sticky_id: top.id, rationale: `Simulated AI decision: this had the strongest support (score ${top.score}${second ? ` vs ${second.score}` : ''})${top.quadrant ? ` and sits in ${top.quadrant}` : ''}, so we carry it forward.` };
   },
 };
+
+// Simple wireframe SVGs for simulated sketches (8 layouts).
+const T = (x, y, t, size = 11) => `<text x="${x}" y="${y}" font-family="Arial" font-size="${size}" fill="#333">${t.replace(/[<&>]/g, '')}</text>`;
+const R = (x, y, w, h, fill = 'none') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${fill}" stroke="#555" stroke-width="1.5"/>`;
+const L = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#999" stroke-width="1.5"/>`;
+const LAYOUTS = [
+  (t) => R(10, 10, 300, 30, '#eee') + T(20, 30, t, 12) + [0, 1, 2, 3, 4].map((i) => R(10, 50 + i * 36, 300, 28) + L(20, 64 + i * 36, 150, 64 + i * 36) + R(260, 56 + i * 36, 40, 16, '#ddd')).join(''),
+  (t) => T(12, 24, t, 12) + [0, 1, 2].map((i) => R(10 + i * 102, 36, 94, 90) + L(20 + i * 102, 60, 90 + i * 102, 60) + T(20 + i * 102, 110, '##', 18)).join('') + R(10, 136, 300, 94),
+  (t) => T(12, 24, t, 12) + R(10, 34, 300, 196) + [40, 90, 70, 130, 110, 160].map((h, i) => R(30 + i * 45, 220 - h, 26, h, '#ddd')).join(''),
+  (t) => R(10, 10, 190, 220) + R(210, 10, 100, 220, '#f2f2f2') + T(218, 30, 'Panel') + [0, 1, 2, 3].map((i) => L(218, 50 + i * 24, 300, 50 + i * 24)).join('') + T(20, 30, t, 12),
+  (t) => T(12, 24, t, 12) + L(30, 60, 30, 220) + [0, 1, 2, 3].map((i) => `<circle cx="30" cy="${70 + i * 45}" r="6" fill="#fff" stroke="#555" stroke-width="1.5"/>` + R(50, 58 + i * 45, 250, 26)).join(''),
+  (t) => R(10, 10, 300, 220, '#f4f4f4') + R(50, 50, 220, 140, '#fff') + T(64, 74, t, 12) + L(64, 96, 250, 96) + L(64, 116, 220, 116) + R(190, 158, 64, 22, '#ddd') + T(204, 173, 'OK'),
+  (t) => T(12, 24, t, 12) + [0, 1, 2].map((c) => R(10 + c * 102, 36, 94, 194, '#f4f4f4') + [0, 1, 2].map((i) => R(18 + c * 102, 50 + i * 52, 78, 42, '#fff')).join('')).join(''),
+  (t) => R(10, 10, 90, 220, '#f2f2f2') + [0, 1, 2, 3, 4].map((i) => L(20, 34 + i * 30, 88, 34 + i * 30)).join('') + R(110, 10, 200, 220) + T(120, 32, t, 12) + L(120, 50, 290, 50) + L(120, 70, 270, 70) + L(120, 90, 280, 90),
+];
+const wireframe = (i, label) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240"><rect width="320" height="240" fill="#fff"/>${LAYOUTS[i % LAYOUTS.length](label)}</svg>`;
+const IDEAS = ['Status board by owner', 'Due-today summary cards', 'Close progress chart', 'Item with blocker panel', 'Approval timeline', 'Request-docs dialog', 'Kanban by state', 'Reviewer inbox'];
 
 function synth(db, ws) { return db.members.filter((m) => m.workshop_id === ws.id && m.is_synthetic); }
 

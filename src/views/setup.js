@@ -7,7 +7,7 @@ import { Field, SaveOnBlur, Avatar, useCopy, Empty, Modal } from './ui.js';
 import { generateSynthetic, isSimulated } from '../ai.js';
 import { ResearchManager } from './research.js';
 
-const TABS = [['details', 'Details'], ['intro', 'Introduction'], ['agenda', 'Agenda'], ['people', 'People & invites'], ['research', 'Research']];
+const TABS = [['details', 'Details'], ['intro', 'Introduction'], ['agenda', 'Agenda'], ['people', 'People & invites'], ['research', 'Research'], ['skills', 'Skills']];
 
 export function SetupView({ wsId, user }) {
   const data = useWorkshop(wsId, user);
@@ -38,6 +38,7 @@ export function SetupView({ wsId, user }) {
         ${tab === 'intro' && html`<${Intro} w=${w} save=${save} />`}
         ${tab === 'agenda' && html`<${Agenda} w=${w} save=${save} />`}
         ${tab === 'people' && html`<${People} w=${w} data=${data} />`}
+        ${tab === 'skills' && html`<${Skills} w=${w} save=${save} />`}
         ${tab === 'research' && html`<${ResearchManager} wsId=${w.id} research=${data.research} me=${data.me} canEdit=${true} />`}
       </section>
     </main>`;
@@ -82,6 +83,19 @@ function Intro({ w, save }) {
         <${SaveOnBlur} multiline rows="6" value=${(intro.rules || []).join('\n')} onSave=${(v) => set('rules')(v.split('\n').map((s) => s.trim()).filter(Boolean))} />
       <//>
       <${Field} label="What to expect"><${SaveOnBlur} multiline value=${intro.expectations} onSave=${set('expectations')} /><//>
+    </div>`;
+}
+
+function Skills({ w, save }) {
+  const intro = { ...defaultIntro(), ...w.intro };
+  const set = (k) => (v) => save({ intro: { ...intro, [k]: v } });
+  return html`
+    <div class="stack">
+      <p class="muted">Paste the AI skill files (Markdown) you share with participants before the workshop, or a link to them. During Crazy 8s and Solution Sketch, everyone can view and copy them next to their sketch slots.</p>
+      <${Field} label="Crazy 8s skill" hint="Used in step: Crazy 8s. Participants run it in their own AI tool and upload the 8 sketches.">
+        <${SaveOnBlur} multiline rows="8" value=${intro.skill_crazy8 || ''} onSave=${set('skill_crazy8')} placeholder="# Crazy 8s skill…" /><//>
+      <${Field} label="Solution sketch skill" hint="Used in step: Solution Sketch, for a uniform, consistent look.">
+        <${SaveOnBlur} multiline rows="8" value=${intro.skill_solution || ''} onSave=${set('skill_solution')} placeholder="# Solution sketch skill…" /><//>
     </div>`;
 }
 

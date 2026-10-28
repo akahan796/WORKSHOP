@@ -7,6 +7,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 // syncs sessions across tabs that share a storage key, so a shared key would
 // let the organizer's session leak into guest tabs (and vice versa).
 const GUEST_KEY = 'wai_guest_storage_key';
+const urlCache = {}; // sketch path → { url, exp }
 
 export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
   let user = null;
@@ -128,6 +129,32 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
       ok(await q);
     },
 
+    async listSheets(wsId) {
+      const { data, error } = await sb.from('sheets').select('*').eq('workshop_id', wsId);
+      if (error) { console.warn('sheets unavailable (run supabase/migrations/003_phase3.sql):', error.message); return []; }
+      return data;
+    },
+    async saveSheet(wsId, memberId, kind, patch) {
+      return ok(await sb.from('sheets').upsert(
+        { workshop_id: wsId, member_id: memberId, kind, ...patch, updated_at: new Date().toISOString() },
+        { onConflict: 'workshop_id,member_id,kind' }).select().single());
+    },
+    async uploadSketch(wsId, memberId, blob, ext) {
+      const path = `${wsId}/${memberId}/${crypto.randomUUID()}.${ext}`;
+      ok(await sb.storage.from('sketches').upload(path, blob, { contentType: blob.type || undefined }));
+      return path;
+    },
+    // Signed URLs, cached until shortly before they expire.
+    async sketchUrls(paths) {
+      const now = Date.now(), out = {}, need = [];
+      for (const p of paths) { const c = urlCache[p]; if (c && c.exp > now) out[p] = c.url; else need.push(p); }
+      if (need.length) {
+        const data = ok(await sb.storage.from('sketches').createSignedUrls(need, 60 * 60 * 8));
+        for (const d of data) if (d.signedUrl) { urlCache[d.path] = { url: d.signedUrl, exp: now + 7.5 * 3600e3 }; out[d.path] = d.signedUrl; }
+      }
+      return out;
+    },
+
     // Claude calls run in the `ai` edge function (supabase/functions/ai) with the organizer's session.
     async ai(task, body) {
       const { data, error } = await sb.functions.invoke('ai', { body: { task, ...body } });
@@ -142,7 +169,7 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
 
     subscribe(wsId, fn) {
       const ch = sb.channel('ws-' + wsId);
-      for (const table of ['workshops', 'members', 'research', 'stickies', 'votes']) {
+      for (const table of ['workshops', 'members', 'research', 'stickies', 'votes', 'sheets']) {
         const filter = table === 'workshops' ? `id=eq.${wsId}` : `workshop_id=eq.${wsId}`;
         ch.on('postgres_changes', { event: '*', schema: 'public', table, filter }, () => fn(table));
       }

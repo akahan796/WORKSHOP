@@ -5,6 +5,13 @@ Organizers set up the workshop and invite people; researchers share findings;
 participants join from a personal guest link and contribute at each step.
 Full spec and phase plan: [SPEC.md](SPEC.md).
 
+**Phase 3 (built):** Crazy 8s (8 image slots: click, drop or paste what your
+AI tool made, with the organizer's skill file and a ready prompt alongside), sharing
+with a synced spotlight and votes on single sketches, solution sketches (title,
+summary, 3+ frames with captions, built on any Crazy 8s idea), review with comments,
+and voting on a direction (reasoning, optional round 2, Decider's final call). AI
+participants draw SVG wireframes; AI votes and the AI Decider look at the sketches.
+
 **Phase 2 (built):** synthetic AI participants (generated personas that add
 stickies, HMWs and votes on request; one can be the Decider), the Impact/Effort
 grid with AI placement and drag-to-adjust, and HMW dot voting with the Decider
@@ -30,7 +37,7 @@ No Node or build step. Data lives in **Supabase**, or in the browser in **demo m
 | `src/views/` | Auth, dashboard, setup, join, live room, step stages. |
 | `src/steps.js` | The 13-step agenda from the runbook. |
 | `supabase/schema.sql` | Tables, row-level security, RPCs, realtime, storage bucket. |
-| `supabase/migrations/` | Changes after phase 1, run in order (`002_phase2.sql`: votes, personas, Decider RPC). |
+| `supabase/migrations/` | Changes after phase 1, run in order (`002_phase2.sql`: votes, personas, Decider RPC; `003_phase3.sql`: sketch sheets + sketch image bucket). |
 | `supabase/functions/ai/` | Claude edge function: grid placement, synthetic participants and their contributions, AI Decider. |
 | `src/ai.js` | Organizer AI actions; writes the AI's results as normal workshop data. |
 
@@ -52,7 +59,7 @@ researcher and participants side by side; each tab is its own user.
 The AI runs in the Supabase edge function `ai` (Claude Opus 5.5), so the API key
 never reaches the browser. Only a workshop's organizer can call it.
 
-1. In SQL Editor, run `supabase/migrations/002_phase2.sql`.
+1. In SQL Editor, run `supabase/migrations/002_phase2.sql`, then `003_phase3.sql`.
 2. Edge Functions → **Deploy a new function** → **Via editor**. Name it `ai`,
    paste `supabase/functions/ai/index.ts`, and deploy.
 3. Edge Functions → **Secrets**: add `ANTHROPIC_API_KEY` (from console.anthropic.com).

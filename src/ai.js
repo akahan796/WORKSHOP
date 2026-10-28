@@ -2,7 +2,7 @@
 // function, or the demo stand-in) for plain results, then writes them as normal
 // workshop data, so everyone's screen updates live.
 import { backend } from './backend/index.js';
-import { nextColor, hmwText } from './lib.js';
+import { nextColor, hmwText, uid } from './lib.js';
 import { demoAi } from './backend/demo-ai.js';
 
 // Simulated AI: the built-in stand-in, no API call. Used in demo mode and for any
@@ -77,29 +77,90 @@ export async function placeGrid(w, hmws) {
 
 // Weighted tally: the Decider's dots count double.
 export const DECIDER_WEIGHT = 2;
-export function tally(hmws, votes, members) {
+export function tallyItems(items, votes, members) {
   const decider = members.find((m) => m.is_decider);
-  return hmws.map((s) => {
-    const mine = votes.filter((v) => v.target_id === s.id);
+  return items.map((item) => {
+    const mine = votes.filter((v) => v.target_id === item.id);
     const deciderDots = decider ? mine.filter((v) => v.member_id === decider.id).length : 0;
-    return { sticky: s, dots: mine.length, deciderDots, score: mine.length + deciderDots * (DECIDER_WEIGHT - 1) };
+    return { item, sticky: item, dots: mine.length, deciderDots, score: mine.length + deciderDots * (DECIDER_WEIGHT - 1) };
   }).sort((a, b) => b.score - a.score);
 }
+export const tally = tallyItems;
 
-export async function synthVotes(w, hmws, members, dots) {
+// AI participants vote in a round; re-running replaces their earlier votes in it.
+async function castSynthVotes(w, round, candidates, members, dots) {
   const synthIds = members.filter((m) => m.is_synthetic).map((m) => m.id);
-  const candidates = hmws.map((s) => ({ id: s.id, text: s.text, quadrant: QUADRANTS[quadrantOf(s.data?.grid)]?.label, impact: s.data?.grid?.y, effort: s.data?.grid?.x }));
-  const { ballots } = await runAi(w, 'synth_votes', { dots, candidates });
-  await backend.deleteVotes(w.id, 'hmw', synthIds); // re-running replaces earlier AI votes
+  const { ballots } = await runAi(w, 'synth_votes', { round: round === 'solution2' ? 'solution' : round, dots, candidates });
+  await backend.deleteVotes(w.id, round, synthIds);
   const rows = [];
-  for (const b of ballots) for (const v of b.votes) for (let i = 0; i < v.dots; i++) rows.push({ workshop_id: w.id, member_id: b.member_id, target_id: v.sticky_id, round: 'hmw' });
+  for (const b of ballots) for (const v of b.votes) for (let i = 0; i < v.dots; i++) rows.push({ workshop_id: w.id, member_id: b.member_id, target_id: v.sticky_id, round });
   if (rows.length) await backend.addVotes(rows);
   return ballots;
 }
+
+export async function synthVotes(w, hmws, members, dots) {
+  const candidates = hmws.map((s) => ({ id: s.id, text: s.text, quadrant: QUADRANTS[quadrantOf(s.data?.grid)]?.label, impact: s.data?.grid?.y, effort: s.data?.grid?.x }));
+  return castSynthVotes(w, 'hmw', candidates, members, dots);
+}
+
+// Sketch rounds: candidates are [{ id, text, image_paths }].
+export const synthSketchVotes = (w, round, candidates, members, dots) => castSynthVotes(w, round, candidates, members, dots);
 
 export async function aiDecide(w, ranked) {
   const candidates = ranked.slice(0, 5).map((r) => ({ id: r.sticky.id, text: r.sticky.text, score: r.score, quadrant: QUADRANTS[quadrantOf(r.sticky.data?.grid)]?.label }));
   const d = await runAi(w, 'decide_hmw', { candidates });
   await backend.setDecision(w.id, 'hmw_final', { sticky_id: d.sticky_id, rationale: d.rationale, by: 'ai' });
   return d;
+}
+
+export async function aiDecideSolution(w, ranked) {
+  const candidates = ranked.slice(0, 5).map((r) => ({ id: r.item.id, text: `"${r.item.title}": ${r.item.summary}`, score: r.score, image_paths: r.item.cells.map((c) => c.file_path).filter(Boolean) }));
+  const d = await runAi(w, 'decide_solution', { candidates });
+  await backend.setDecision(w.id, 'solution_final', { sheet_id: d.sheet_id, rationale: d.rationale, by: 'ai' });
+  return d;
+}
+
+// ── AI participants' sketches ──
+const svgBlob = (svg) => new Blob([svg], { type: 'image/svg+xml' });
+
+async function saveCells(w, memberId, cells) {
+  const out = [];
+  for (const c of cells) {
+    const file_path = c.svg ? await backend.uploadSketch(w.id, memberId, svgBlob(c.svg), 'svg') : null;
+    out.push({ id: uid(), file_path, caption: c.caption || '' });
+  }
+  return out;
+}
+
+// Runs one AI call per synthetic participant, in parallel. Returns a summary line.
+async function perSynth(members, fn) {
+  const synth = members.filter((m) => m.is_synthetic);
+  const results = await Promise.allSettled(synth.map(fn));
+  const failed = results.filter((r) => r.status === 'rejected');
+  if (failed.length === results.length && failed.length) throw failed[0].reason;
+  return `${results.length - failed.length} of ${results.length} AI participants done${failed.length ? ` (${failed[0].reason.message})` : ''}.`;
+}
+
+export function synthCrazy8(w, members) {
+  return perSynth(members, async (m) => {
+    const { cells } = await runAi(w, 'synth_crazy8', { member_id: m.id });
+    await backend.saveSheet(w.id, m.id, 'crazy8', { cells: await saveCells(w, m.id, cells), ready: true });
+  });
+}
+
+// ideas: [{ id, caption, author, votes }] (Crazy 8s cells)
+export function synthSolutions(w, members, ideas) {
+  return perSynth(members, async (m) => {
+    const r = await runAi(w, 'synth_solution', { member_id: m.id, ideas });
+    await backend.saveSheet(w.id, m.id, 'solution', { title: r.title, summary: r.summary, based_on: r.based_on, cells: await saveCells(w, m.id, r.frames), ready: true });
+  });
+}
+
+export async function synthComments(w, solutions, members) {
+  const name = Object.fromEntries(members.map((m) => [m.id, m.name]));
+  const { comments } = await runAi(w, 'synth_comments', {
+    solutions: solutions.map((x) => ({ id: x.id, member_id: x.member_id, author: name[x.member_id], title: x.title, summary: x.summary, captions: x.cells.map((c) => c.caption), image_paths: x.cells.map((c) => c.file_path).filter(Boolean) })),
+  });
+  for (const c of comments) await backend.addSticky({ workshop_id: w.id, member_id: c.member_id, step: 'review', kind: 'comment', text: c.text, data: { sheet_id: c.sheet_id } });
+  return `Added ${comments.length} comments.`;
 }

@@ -12,6 +12,12 @@
 //   synth_hmw           HMW statements from each AI participant
 //   synth_votes         dot votes from each AI participant
 //   decide_hmw          the AI Decider's final pick among HMW candidates
+//   synth_crazy8        one AI participant's 8 Crazy 8s sketches (SVG wireframes)
+//   synth_solution      one AI participant's solution sketch (title, summary, 3–4 SVG frames)
+//   synth_comments      AI participants' review comments on solution sketches
+//   decide_solution     the AI Decider's final pick of a solution direction
+// synth_votes takes `round` ('hmw' | 'crazy8' | 'solution'); sketch rounds
+// send Claude the uploaded sketch images.
 //
 // Secrets (Edge Functions → Secrets): ANTHROPIC_API_KEY (required);
 // AI_MODEL (optional, default claude-opus-5-5), e.g. claude-haiku-5-5 for a
@@ -40,10 +46,10 @@ const DISCIPLINES: Record<string, string> = { design: "Product Design", pm: "Pro
 // One Claude call that must answer through a single strict tool. Forced
 // tool_choice isn't available on Claude Opus 5.5, so the prompt names the tool
 // and `strict: true` keeps the arguments schema-valid.
-async function callTool(system: string, content: Anthropic.Beta.BetaContentBlockParam[], tool: { name: string; description: string; input_schema: Record<string, unknown> }) {
+async function callTool(system: string, content: Anthropic.Beta.BetaContentBlockParam[], tool: { name: string; description: string; input_schema: Record<string, unknown> }, maxTokens = 16000) {
   const response = await anthropic.beta.messages.create({
     model: MODEL,
-    max_tokens: 16000,
+    max_tokens: maxTokens,
     // A declined request is retried server-side on Anthropic's recommended fallback model.
     ...(FALLBACK_MODELS.has(MODEL) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
     output_config: { effort: "medium" },
@@ -52,6 +58,7 @@ async function callTool(system: string, content: Anthropic.Beta.BetaContentBlock
     tool_choice: { type: "auto" },
     messages: [{ role: "user", content }],
   } as Anthropic.Beta.MessageCreateParamsNonStreaming);
+  if (response.stop_reason === "max_tokens") throw new Error("The AI ran out of room before finishing. Try again.");
   if (response.stop_reason === "refusal") throw new Error("The AI declined this request. Try rewording the workshop details, or try again.");
   const block = response.content.find((b) => b.type === "tool_use" && b.name === tool.name);
   if (!block || block.type !== "tool_use") throw new Error("The AI didn't return a result. Try again.");
@@ -73,6 +80,12 @@ async function workshopContext(sb: any, ws: any, withDeck: boolean) {
     ws.description && `Goal: ${ws.description}`,
     intro.background && `Project background: ${intro.background}`,
   ].filter(Boolean).join("\n");
+  let chosen = "";
+  const finalId = ws.step_state?.hmw_final?.sticky_id;
+  if (finalId) {
+    const { data: st } = await sb.from("stickies").select("text").eq("id", finalId).maybeSingle();
+    if (st) chosen = `\nThe HMW the group chose to carry forward: ${st.text}`;
+  }
   const blocks: Anthropic.Beta.BetaContentBlockParam[] = [];
   if (withDeck) {
     const { data: decks } = await sb.from("research").select("*").eq("workshop_id", ws.id).order("created_at").limit(1);
@@ -87,7 +100,7 @@ async function workshopContext(sb: any, ws: any, withDeck: boolean) {
       }
     }
   }
-  return { text, blocks };
+  return { text: text + chosen, blocks };
 }
 
 async function synthMembers(sb: any, wsId: string) {
@@ -97,6 +110,40 @@ async function synthMembers(sb: any, wsId: string) {
 
 const personaList = (members: any[]) =>
   members.map((m) => `- member_id ${m.id}: ${m.name} (${DISCIPLINES[m.discipline] || "Participant"}${m.is_decider ? ", the Decider" : ""}). ${m.persona}`).join("\n");
+
+// Uploaded sketch images (PNG/JPEG/WebP/GIF) as image blocks, each labeled with
+// its id. SVGs (AI-drawn) can't be sent as images, so they are described by caption.
+const IMAGE_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif" };
+async function sketchImages(sb: any, items: { id: string; label: string; image_paths?: string[] }[], cap = 40) {
+  const blocks: Anthropic.Beta.BetaContentBlockParam[] = [];
+  let n = 0;
+  for (const it of items) {
+    for (const path of it.image_paths || []) {
+      const type = IMAGE_TYPES[(path.split(".").pop() || "").toLowerCase()];
+      if (!type || n >= cap) continue;
+      const { data: file } = await sb.storage.from("sketches").download(path);
+      if (!file || file.size > 4.5e6) continue;
+      blocks.push({ type: "text", text: `Image for ${it.label} (id ${it.id}):` });
+      blocks.push({ type: "image", source: { type: "base64", media_type: type as "image/png", data: base64(new Uint8Array(await file.arrayBuffer())) } });
+      n++;
+    }
+  }
+  return blocks;
+}
+
+// Keep AI-drawn SVG to plain drawing: no scripts, event handlers, or external references.
+function cleanSvg(svg: string) {
+  let s = String(svg || "").trim();
+  const i = s.indexOf("<svg");
+  if (i < 0) return null;
+  s = s.slice(i);
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*')/gi, "").replace(/(href|xlink:href)\s*=\s*("(?!#)[^"]*"|'(?!#)[^']*')/gi, "");
+  if (!/xmlns=/.test(s)) s = s.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+  return s.length < 60000 ? s : null;
+}
+
+const SVG_RULES = 'Each sketch is a rough, low-fidelity UI wireframe drawn as one self-contained SVG: viewBox="0 0 320 240", white background rect, black and grey strokes, boxes for UI regions, and a few short text labels (font-family Arial, font-size 10–14). Keep each under about 30 elements. No images, scripts, links, or foreignObject.';
 
 const SYSTEM = "You support a OneStream UX design-thinking workshop. Be concrete, specific to the product and users described, and write like a thoughtful practitioner, not a consultant.";
 
@@ -200,13 +247,17 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
 
   async synth_votes(sb, ws, body) {
     const members = await synthMembers(sb, ws.id);
+    const round = ["crazy8", "solution"].includes(body.round) ? body.round : "hmw";
     const dots = Math.max(1, Math.min(10, Number(body.dots) || 3));
-    const candidates: { id: string; text: string; quadrant?: string }[] = body.candidates || [];
+    const candidates: { id: string; text: string; quadrant?: string; image_paths?: string[] }[] = body.candidates || [];
     if (!members.length || !candidates.length) return { ballots: [] };
     const ctx = await workshopContext(sb, ws, false);
+    const what = { hmw: "HMW statements to pick the most important problem or opportunity", crazy8: "individual Crazy 8s sketches (single sketches, not whole sheets)", solution: "solution sketches to choose a direction" }[round];
+    const extra = { hmw: " Consider the Impact/Effort placement.", crazy8: " Look at the sketch images where provided.", solution: " Look at the sketch images where provided, and judge how well each answers the chosen HMW." }[round];
+    const images = round === "hmw" ? [] : await sketchImages(sb, candidates.map((c) => ({ id: c.id, label: c.text.slice(0, 80), image_paths: c.image_paths })));
     const out = await callTool(
-      SYSTEM + " You play each synthetic participant dot-voting on HMW statements to pick the most important problem or opportunity.",
-      [{ type: "text", text: `${ctx.text}\n\nEach participant has ${dots} dots. They may put several dots on one HMW, and may vote for their own. Vote from each person's perspective, considering the Impact/Effort placement.\n\nCandidates:\n${candidates.map((c) => `- sticky_id ${c.id}${c.quadrant ? ` [${c.quadrant}]` : ""}: ${c.text}`).join("\n")}\n\nParticipants:\n${personaList(members)}` }],
+      SYSTEM + ` You play each synthetic participant dot-voting on ${what}.`,
+      [...images, { type: "text", text: `${ctx.text}\n\nEach participant has ${dots} dots. They may put several dots on one candidate, and may vote for their own.${extra} Vote from each person's perspective.\n\nCandidates:\n${candidates.map((c) => `- id ${c.id}${c.quadrant ? ` [${c.quadrant}]` : ""}: ${c.text}`).join("\n")}\n\nParticipants:\n${personaList(members)}` }],
       {
         name: "cast_votes",
         description: "Record each participant's dot votes and a one-sentence reason.",
@@ -256,6 +307,104 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
       },
     );
     return { sticky_id: out.sticky_id, rationale: out.rationale };
+  },
+
+  async synth_crazy8(sb, ws, body) {
+    const members = (await synthMembers(sb, ws.id)).filter((m: any) => m.id === body.member_id);
+    if (!members.length) throw new Error("Unknown AI participant.");
+    const ctx = await workshopContext(sb, ws, false);
+    const out = await callTool(
+      SYSTEM + " You play one synthetic participant doing Crazy 8s: eight quick, genuinely different ideas in eight minutes.",
+      [{ type: "text", text: `${ctx.text}\n\nYou are:\n${personaList(members)}\n\nSketch 8 different ideas that answer the chosen HMW, from your perspective. Go wide: vary the approach, not just the layout. ${SVG_RULES} Give each a caption under 12 words.` }],
+      {
+        name: "add_sketches",
+        description: "Add the eight Crazy 8s sketches.",
+        input_schema: {
+          type: "object", additionalProperties: false, required: ["sketches"],
+          properties: { sketches: { type: "array", items: {
+            type: "object", additionalProperties: false, required: ["caption", "svg"],
+            properties: { caption: { type: "string" }, svg: { type: "string" } },
+          } } },
+        },
+      },
+      32000,
+    );
+    return { cells: (out.sketches || []).slice(0, 8).map((c: any) => ({ caption: c.caption, svg: cleanSvg(c.svg) })) };
+  },
+
+  async synth_solution(sb, ws, body) {
+    const members = (await synthMembers(sb, ws.id)).filter((m: any) => m.id === body.member_id);
+    if (!members.length) throw new Error("Unknown AI participant.");
+    const ideas: { id: string; caption: string; author: string; votes?: number }[] = body.ideas || [];
+    const ctx = await workshopContext(sb, ws, false);
+    const out = await callTool(
+      SYSTEM + " You play one synthetic participant turning the strongest Crazy 8s idea into a detailed solution sketch.",
+      [{ type: "text", text: `${ctx.text}\n\nYou are:\n${personaList(members)}\n\nCrazy 8s ideas from the group (with votes):\n${ideas.map((i) => `- id ${i.id} · ${i.votes || 0} votes · by ${i.author}: ${i.caption}`).join("\n") || "(none)"}\n\nPick the idea you think is strongest (yours or anyone's; riffing on someone else's is encouraged), or "none". Develop it into a solution sketch: a clear title, a 2–3 sentence summary, and 3–4 frames that show a flow or interaction, each a picture plus a caption that explains what happens. ${SVG_RULES}` }],
+      {
+        name: "create_solution",
+        description: "Create the solution sketch.",
+        input_schema: {
+          type: "object", additionalProperties: false, required: ["title", "summary", "based_on", "frames"],
+          properties: {
+            title: { type: "string" }, summary: { type: "string" },
+            based_on: { type: "string", enum: [...ideas.map((i) => i.id), "none"] },
+            frames: { type: "array", items: { type: "object", additionalProperties: false, required: ["caption", "svg"], properties: { caption: { type: "string" }, svg: { type: "string" } } } },
+          },
+        },
+      },
+      32000,
+    );
+    return {
+      title: out.title, summary: out.summary, based_on: out.based_on === "none" ? null : out.based_on,
+      frames: (out.frames || []).slice(0, 6).map((f: any) => ({ caption: f.caption, svg: cleanSvg(f.svg) })),
+    };
+  },
+
+  async synth_comments(sb, ws, body) {
+    const members = await synthMembers(sb, ws.id);
+    const solutions: { id: string; member_id: string; author: string; title: string; summary: string; captions: string[]; image_paths?: string[] }[] = body.solutions || [];
+    if (!members.length || !solutions.length) return { comments: [] };
+    const ctx = await workshopContext(sb, ws, false);
+    const images = await sketchImages(sb, solutions.map((x) => ({ id: x.id, label: `"${x.title}"`, image_paths: x.image_paths })), 30);
+    const out = await callTool(
+      SYSTEM + " You play each synthetic participant reviewing the group's solution sketches.",
+      [...images, { type: "text", text: `${ctx.text}\n\nSolution sketches:\n${solutions.map((x) => `- id ${x.id} · "${x.title}" by ${x.author} (member ${x.member_id}): ${x.summary}\n  Frames: ${x.captions.join(" → ")}`).join("\n")}\n\nFor each participant below, write 1–2 short, constructive review comments (under 30 words each) on other people's sketches, never their own: a strength, a question, or a build-on idea, from their perspective.\n\nParticipants:\n${personaList(members)}` }],
+      {
+        name: "add_comments",
+        description: "Add the review comments.",
+        input_schema: {
+          type: "object", additionalProperties: false, required: ["comments"],
+          properties: { comments: { type: "array", items: {
+            type: "object", additionalProperties: false, required: ["member_id", "sheet_id", "text"],
+            properties: { member_id: { type: "string" }, sheet_id: { type: "string" }, text: { type: "string" } },
+          } } },
+        },
+      },
+    );
+    const ids = new Set(members.map((m: any) => m.id));
+    const owner = Object.fromEntries(solutions.map((x) => [x.id, x.member_id]));
+    return { comments: (out.comments || []).filter((c: any) => ids.has(c.member_id) && owner[c.sheet_id] && owner[c.sheet_id] !== c.member_id) };
+  },
+
+  async decide_solution(sb, ws, body) {
+    const candidates: { id: string; text: string; score: number; image_paths?: string[] }[] = body.candidates || [];
+    if (!candidates.length) throw new Error("No solution sketches to decide between.");
+    const { data: decider } = await sb.from("members").select("name, discipline, persona").eq("workshop_id", ws.id).eq("is_decider", true).maybeSingle();
+    const ctx = await workshopContext(sb, ws, false);
+    const images = await sketchImages(sb, candidates.map((c) => ({ id: c.id, label: c.text.slice(0, 80), image_paths: c.image_paths })), 30);
+    const out = await callTool(
+      SYSTEM + ` You are the workshop's Decider${decider ? `, ${decider.name} (${DISCIPLINES[decider.discipline] || "Participant"}). ${decider.persona}` : ""}. You make the final call on which solution direction moves into design.`,
+      [...images, { type: "text", text: `${ctx.text}\n\nThe group dot-voted on solution sketches (the Decider's dots count double). Pick ONE direction to carry into design. Weigh the votes, how well it answers the chosen HMW, and feasibility; you may overrule the vote if you can say why, and you may name one element from another sketch to fold in. Explain your call in 2–4 sentences addressed to the group.\n\nCandidates (highest score first):\n${candidates.map((c) => `- id ${c.id} · score ${c.score}: ${c.text}`).join("\n")}` }],
+      {
+        name: "make_decision",
+        description: "Record the chosen solution and the reasoning.",
+        input_schema: {
+          type: "object", additionalProperties: false, required: ["sheet_id", "rationale"],
+          properties: { sheet_id: { type: "string", enum: candidates.map((c) => c.id) }, rationale: { type: "string" } },
+        },
+      },
+    );
+    return { sheet_id: out.sheet_id, rationale: out.rationale };
   },
 };
 
