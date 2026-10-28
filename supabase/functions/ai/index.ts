@@ -47,21 +47,23 @@ const DISCIPLINES: Record<string, string> = { design: "Product Design", pm: "Pro
 // tool_choice isn't available on Claude Opus 5.5, so the prompt names the tool
 // and `strict: true` keeps the arguments schema-valid.
 async function callTool(system: string, content: Anthropic.Beta.BetaContentBlockParam[], tool: { name: string; description: string; input_schema: Record<string, unknown> }, maxTokens = 16000) {
-  const response = await anthropic.beta.messages.create({
+  // Streamed (the SDK requires it for large max_tokens); finalMessage() returns the whole reply.
+  const response = await anthropic.beta.messages.stream({
     model: MODEL,
     max_tokens: maxTokens,
     // A declined request is retried server-side on Anthropic's recommended fallback model.
     ...(FALLBACK_MODELS.has(MODEL) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
     output_config: { effort: "medium" },
     system: system + `\n\nRespond by calling the ${tool.name} tool exactly once.`,
+    // No eager_input_streaming: nothing here reads partial tool input, and leaving it off keeps strict validation.
     tools: [{ ...tool, strict: true }],
     tool_choice: { type: "auto" },
     messages: [{ role: "user", content }],
-  } as Anthropic.Beta.MessageCreateParamsNonStreaming);
+  } as Anthropic.Beta.MessageCreateParamsStreaming).finalMessage();
   if (response.stop_reason === "max_tokens") throw new Error("The AI ran out of room before finishing. Try again.");
   if (response.stop_reason === "refusal") throw new Error("The AI declined this request. Try rewording the workshop details, or try again.");
   const block = response.content.find((b) => b.type === "tool_use" && b.name === tool.name);
-  if (!block || block.type !== "tool_use") throw new Error("The AI didn't return a result. Try again.");
+  if (!block || block.type !== "tool_use" || !block.input || typeof block.input !== "object") throw new Error("The AI didn't return a result. Try again.");
   return block.input as Record<string, any>;
 }
 
@@ -139,6 +141,8 @@ function cleanSvg(svg: string) {
   s = s.slice(i);
   s = s.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
     .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*')/gi, "").replace(/(href|xlink:href)\s*=\s*("(?!#)[^"]*"|'(?!#)[^']*')/gi, "");
+  if (!/<\/svg>\s*$/.test(s)) return null; // cut off mid-drawing
+  s = s.replace(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);)/gi, "&amp;");
   if (!/xmlns=/.test(s)) s = s.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
   return s.length < 60000 ? s : null;
 }
@@ -313,23 +317,33 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
     const members = (await synthMembers(sb, ws.id)).filter((m: any) => m.id === body.member_id);
     if (!members.length) throw new Error("Unknown AI participant.");
     const ctx = await workshopContext(sb, ws, false);
-    const out = await callTool(
-      SYSTEM + " You play one synthetic participant doing Crazy 8s: eight quick, genuinely different ideas in eight minutes.",
-      [{ type: "text", text: `${ctx.text}\n\nYou are:\n${personaList(members)}\n\nSketch 8 different ideas that answer the chosen HMW, from your perspective. Go wide: vary the approach, not just the layout. ${SVG_RULES} Give each a caption under 12 words.` }],
-      {
-        name: "add_sketches",
-        description: "Add the eight Crazy 8s sketches.",
-        input_schema: {
-          type: "object", additionalProperties: false, required: ["sketches"],
-          properties: { sketches: { type: "array", items: {
-            type: "object", additionalProperties: false, required: ["caption", "svg"],
-            properties: { caption: { type: "string" }, svg: { type: "string" } },
-          } } },
-        },
+    const tool = {
+      name: "add_sketches",
+      description: "Add the Crazy 8s sketches.",
+      input_schema: {
+        type: "object", additionalProperties: false, required: ["sketches"],
+        properties: { sketches: { type: "array", items: {
+          type: "object", additionalProperties: false, required: ["caption", "svg"],
+          properties: { caption: { type: "string" }, svg: { type: "string" } },
+        } } },
       },
-      32000,
-    );
-    return { cells: (out.sketches || []).slice(0, 8).map((c: any) => ({ caption: c.caption, svg: cleanSvg(c.svg) })) };
+    };
+    // Ask for 8; if fewer usable sketches come back, ask once more for the rest.
+    const cells: { caption: string; svg: string }[] = [];
+    for (let attempt = 0; attempt < 2 && cells.length < 8; attempt++) {
+      const need = 8 - cells.length;
+      const have = cells.length ? `\nYou already sketched: ${cells.map((c) => c.caption).join("; ")}. Make ${need} more that are different from these.` : "";
+      const out = await callTool(
+        SYSTEM + " You play one synthetic participant doing Crazy 8s: eight quick, genuinely different ideas in eight minutes.",
+        [{ type: "text", text: `${ctx.text}\n\nYou are:\n${personaList(members)}\n\nSketch exactly ${need} different ideas that answer the chosen HMW, from your perspective. Go wide: vary the approach, not just the layout. ${SVG_RULES} Give each a caption under 12 words.${have}` }],
+        tool, 32000,
+      );
+      for (const c of out.sketches || []) {
+        const svg = cleanSvg(c.svg);
+        if (svg && c.caption && cells.length < 8) cells.push({ caption: c.caption, svg });
+      }
+    }
+    return { cells };
   },
 
   async synth_solution(sb, ws, body) {
