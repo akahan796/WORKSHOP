@@ -134,7 +134,8 @@ async function saveCells(w, memberId, cells) {
   const out = [];
   for (const c of cells) {
     const file_path = c.svg ? await backend.uploadSketch(w.id, memberId, svgBlob(c.svg), 'svg') : null;
-    out.push({ id: uid(), file_path, caption: c.caption || '' });
+    // The slot already shows the number, so drop a leading "1." / "Frame 2:" from the caption.
+    out.push({ id: uid(), file_path, caption: (c.caption || '').replace(/^\s*(?:frame|sketch|idea)?\s*\d+\s*[.):-]\s*/i, '') });
   }
   return out;
 }
