@@ -22,7 +22,7 @@ export async function createDemoWorkshop(user, opts, onProgress = () => {}) {
   try { content = await demoContent(asked ? ws : simulated, { topic, participants: 4 }); }
   catch (e) {
     if (!asked) throw e;
-    notice = `Claude couldn't write the content (${e.message.split(' Tip:')[0]}), so the built-in demo template was used.`;
+    notice = `Claude couldn't write the content, so the built-in demo template was used. Reason: ${e.message.split(' Tip:')[0]}`;
     content = await demoContent(simulated, { topic, participants: 4 });
   }
   ws = await backend.updateWorkshop(ws.id, {
