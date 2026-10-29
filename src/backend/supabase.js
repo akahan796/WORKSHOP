@@ -1,5 +1,6 @@
 // Supabase backend. Tables, RLS and RPCs are defined in supabase/schema.sql.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
+import { KEEP_STATE } from '../lib.js';
 
 // Two kinds of client. Staff (organizers) use the default client: session in
 // localStorage, shared by all their tabs. A guest tab (opened from an invite link)
@@ -62,6 +63,18 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
     async getWorkshop(id) { return ok(await sb.from('workshops').select('*').eq('id', id).maybeSingle()); },
     async updateWorkshop(id, patch) { return ok(await sb.from('workshops').update(patch).eq('id', id).select().single()); },
     async deleteWorkshop(id) { ok(await sb.from('workshops').delete().eq('id', id)); },
+    // Back to a new, unstarted workshop: deletes everything the session produced
+    // (stickies, HMWs, votes, sketches, flow, prototypes, decisions) and keeps the
+    // setup (details, intro, agenda, people, research decks, AI mode, voting setting).
+    async resetWorkshop(id) {
+      const { data: sheets } = await sb.from('sheets').select('cells').eq('workshop_id', id);
+      const paths = (sheets || []).flatMap((x) => (x.cells || []).map((c) => c.file_path)).filter(Boolean);
+      if (paths.length) await sb.storage.from('sketches').remove(paths);
+      for (const t of ['votes', 'stickies', 'sheets', 'artifacts']) ok(await sb.from(t).delete().eq('workshop_id', id));
+      const w = ok(await sb.from('workshops').select('step_state').eq('id', id).single());
+      const keep = Object.fromEntries(Object.entries(w.step_state || {}).filter(([k]) => KEEP_STATE.includes(k)));
+      ok(await sb.from('workshops').update({ status: 'draft', current_step: 'cover', timer_ends_at: null, step_state: keep }).eq('id', id));
+    },
     async setStepState(id, patch) { ok(await sb.rpc('set_step_state', { ws: id, patch })); },
     async setDecision(id, key, value) { ok(await sb.rpc('set_decision', { ws: id, p_key: key, p_value: value })); },
 
@@ -213,6 +226,7 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
     addMember: ['members'], updateMember: ['members'], removeMember: ['members', 'stickies', 'votes', 'sheets'], claimInvite: ['members'],
     uploadResearch: ['research'], deleteResearch: ['research'],
     addSticky: ['stickies'], updateSticky: ['stickies'], deleteSticky: ['stickies', 'votes'],
+    resetWorkshop: ['workshops', 'stickies', 'votes', 'sheets', 'artifacts'],
     addVotes: ['votes'], deleteVote: ['votes'], deleteVotes: ['votes'], saveSheet: ['sheets'], saveArtifact: ['artifacts'],
   };
   for (const [name, tables] of Object.entries(WRITES)) {

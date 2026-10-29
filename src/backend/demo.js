@@ -3,7 +3,7 @@
 // broadcast so other tabs (other "people") update live. The signed-in user is
 // per tab (sessionStorage), so one browser can play organizer, researcher and
 // participants side by side.
-import { uid, token } from '../lib.js';
+import { uid, token, KEEP_STATE } from '../lib.js';
 
 const DB_KEY = 'wai_demo_db';
 const SESSION_KEY = 'wai_demo_session';
@@ -112,6 +112,16 @@ export function createDemoBackend() {
         db.workshops = db.workshops.filter((w) => w.id !== id);
         for (const t of ['members', 'invites', 'research', 'stickies', 'votes', 'sheets', 'artifacts']) db[t] = db[t].filter((r) => r.workshop_id !== id);
       }, 'workshops');
+    },
+    // Same as the Supabase backend: clear the session's results, keep the setup.
+    async resetWorkshop(id) {
+      write((db) => {
+        for (const t of ['votes', 'stickies', 'sheets', 'artifacts']) db[t] = db[t].filter((r) => r.workshop_id !== id);
+        const w = db.workshops.find((x) => x.id === id);
+        const keep = Object.fromEntries(Object.entries(w.step_state || {}).filter(([k]) => KEEP_STATE.includes(k)));
+        Object.assign(w, { status: 'draft', current_step: 'cover', timer_ends_at: null, step_state: keep });
+      }, 'workshops');
+      for (const t of ['votes', 'stickies', 'sheets', 'artifacts']) emit(t);
     },
     async setDecision(id, key, value) { return this.setStepState(id, { [key]: value }); },
     async setStepState(id, patch) {

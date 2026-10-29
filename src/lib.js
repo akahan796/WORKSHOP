@@ -21,6 +21,8 @@ export const DISCIPLINES = { design: 'Product Design', pm: 'Product Management',
 export const ROLES = { organizer: 'Facilitator', facilitator: 'Facilitator', researcher: 'Researcher', participant: 'Participant' };
 // Facilitators run the workshop: the workshop's creator (role 'organizer', also
 // the owner) and anyone else given the Facilitator role. They don't sketch or vote.
+// Workshop settings stored in step_state that survive a reset (the rest is live session state).
+export const KEEP_STATE = ['ai_mode', 'organizer_votes'];
 export const facilitates = (m) => !!m && (m.role === 'organizer' || m.role === 'facilitator');
 
 // Sticky colors handed out to members in order. Purple is reserved for the Decider's votes.
