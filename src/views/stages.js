@@ -1,5 +1,5 @@
 // The stage shown for each workshop step.
-import { html, useState, useEffect, useMemo, cx, DISCIPLINES, ROLES, fmtDate, hmwText } from '../lib.js';
+import { html, useState, useEffect, useMemo, cx, DISCIPLINES, ROLES, fmtDate, hmwText, facilitates } from '../lib.js';
 import { backend } from '../backend/index.js';
 import { activeSteps, defaultIntro, STICKY_KINDS } from '../steps.js';
 import { Avatar, Empty, AiButton } from './ui.js';
@@ -45,7 +45,7 @@ export function IntroStage({ w, data }) {
   const intro = { ...defaultIntro(), ...w.intro };
   const organizer = data.members.find((m) => m.role === 'organizer');
   const steps = activeSteps(w);
-  const people = data.members.filter((m) => m.role !== 'organizer');
+  const people = data.members.filter((m) => !facilitates(m));
   return html`
     <div class="intro">
       <section class="intro-hero">

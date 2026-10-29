@@ -116,7 +116,7 @@ export function RoomView({ wsId, user }) {
       </div>
       ${isOrganizer && html`
         <footer class="control-bar">
-          <span class="muted small">Organizer controls</span>
+          <span class="muted small">Facilitator controls</span>
           <div class="row">
             <button class="btn" disabled=${idx === 0} onClick=${() => goTo(idx - 1)}>← Previous</button>
             ${w.status === 'draft'

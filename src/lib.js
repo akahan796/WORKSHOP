@@ -18,7 +18,10 @@ export const token = () => (uid() + uid()).replace(/-/g, '');
 export const cx = (...a) => a.filter(Boolean).join(' ');
 
 export const DISCIPLINES = { design: 'Product Design', pm: 'Product Management', eng: 'Engineering' };
-export const ROLES = { organizer: 'Organizer', researcher: 'Researcher', participant: 'Participant' };
+export const ROLES = { organizer: 'Facilitator', facilitator: 'Facilitator', researcher: 'Researcher', participant: 'Participant' };
+// Facilitators run the workshop: the workshop's creator (role 'organizer', also
+// the owner) and anyone else given the Facilitator role. They don't sketch or vote.
+export const facilitates = (m) => !!m && (m.role === 'organizer' || m.role === 'facilitator');
 
 // Sticky colors handed out to members in order. Purple is reserved for the Decider's votes.
 export const STICKY_COLORS = ['#FFE27A', '#FFB3C7', '#A8E6A1', '#A9D8FF', '#FFC48C', '#C9F0E8',

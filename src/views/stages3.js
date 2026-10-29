@@ -1,6 +1,6 @@
 // Phase 3 stages: Crazy 8s, sharing them (per-sketch votes), solution sketches,
 // review, and voting on a direction with the Decider.
-import { html, useState, useEffect, useMemo, cx, uid, DECIDER_PURPLE } from '../lib.js';
+import { html, useState, useEffect, useMemo, cx, uid, DECIDER_PURPLE, facilitates } from '../lib.js';
 import { backend } from '../backend/index.js';
 import { Avatar, Empty, AiButton, Modal, useCopy } from './ui.js';
 import { tallyItems, DECIDER_WEIGHT, canMemberVote, synthCrazy8, synthSketchVotes, synthSolutions, synthComments, aiDecideSolution } from '../ai.js';
@@ -133,7 +133,7 @@ export function Crazy8Stage({ w, data, me, isOrganizer }) {
   const blankIds = useMemo(() => Array.from({ length: 8 }, () => uid()), []);
   const cells = pad8(mine ? mine.cells : [], blankIds);
   const urls = useSketchUrls(cells.map((c) => c.file_path));
-  const sketchers = data.members.filter((m) => m.role !== 'organizer');
+  const sketchers = data.members.filter((m) => !facilitates(m));
   const hmw = data.stickies.find((x) => x.id === (w.step_state || {}).hmw_final?.sticky_id);
   const prompt = `Crazy 8s: sketch 8 different ideas, one per panel, for this problem.\n${hmw ? hmw.text : ''}\nWorkshop: ${w.title} (${w.project}).`;
 
@@ -145,7 +145,7 @@ export function Crazy8Stage({ w, data, me, isOrganizer }) {
   return html`
     <div class="stack">
       <${ChosenHmw} w=${w} data=${data} />
-      ${me && me.role !== 'organizer' ? html`
+      ${me && !facilitates(me) ? html`
         <${SkillBox} title="Crazy 8s skill: run it in your AI tool, then add each sketch below" text=${w.intro?.skill_crazy8} prompt=${prompt} />
         <div class="row between"><h3>Your Crazy 8s <span class="muted small">${cells.filter((c) => c.file_path).length}/8</span></h3><span class="muted small">Only you can see your sheet until the share-out.</span></div>
         <div class="crazy8-grid">
@@ -258,7 +258,7 @@ export function SolutionStage({ w, data, me, isOrganizer }) {
   const [summary, setSummary] = useState(mine?.summary || '');
   useEffect(() => { setTitle(mine?.title || ''); setSummary(mine?.summary || ''); }, [mine?.id]);
   const solutions = data.sheets.filter((x) => x.kind === 'solution');
-  const sketchers = data.members.filter((m) => m.role !== 'organizer');
+  const sketchers = data.members.filter((m) => !facilitates(m));
 
   const save = (patch) => backend.saveSheet(w.id, me.id, 'solution', { cells: frames, ...patch });
   const saveFrame = (i, patch) => save({ cells: frames.map((c, j) => (j === i ? { ...c, ...patch } : c)) });
@@ -266,7 +266,7 @@ export function SolutionStage({ w, data, me, isOrganizer }) {
   return html`
     <div class="stack">
       <${ChosenHmw} w=${w} data=${data} />
-      ${me && me.role !== 'organizer' ? html`
+      ${me && !facilitates(me) ? html`
         <${SkillBox} title="Solution sketch skill: use it in your AI tool for a consistent look" text=${w.intro?.skill_solution}
           prompt=${`Solution sketch for: ${data.stickies.find((x) => x.id === w.step_state?.hmw_final?.sticky_id)?.text || w.title}\nShow a clear title and 3+ frames of a flow, mixing pictures and words.`} />
         <section class="card stack">

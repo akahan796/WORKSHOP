@@ -325,3 +325,4 @@ textarea { resize: vertical; }
 .check { display: flex; align-items: center; gap: 8px; }
 .row.end { justify-content: flex-end; }
 @media (max-width: 560px) { .choice-cards { grid-template-columns: 1fr; } }
+.pill-facilitator { background: #E6EFFF; color: var(--brand); }

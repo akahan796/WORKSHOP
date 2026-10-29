@@ -43,7 +43,7 @@ create table members (
   user_id      uuid references auth.users on delete set null,
   name         text not null default '',
   email        text not null default '',
-  role         text not null check (role in ('organizer','researcher','participant')),
+  role         text not null check (role in ('organizer','facilitator','researcher','participant')),
   discipline   text check (discipline in ('design','pm','eng')),
   color        text not null default '#FFE27A',
   is_decider   boolean not null default false,
@@ -90,7 +90,8 @@ $$;
 
 create or replace function is_organizer(ws uuid) returns boolean
 language sql security definer stable set search_path = public as $$
-  select exists (select 1 from workshops where id = ws and organizer_id = auth.uid());
+  select exists (select 1 from workshops where id = ws and organizer_id = auth.uid())
+      or exists (select 1 from members where workshop_id = ws and user_id = auth.uid() and role = 'facilitator');
 $$;
 
 create or replace function has_role(ws uuid, r text) returns boolean
@@ -191,7 +192,7 @@ create policy "own profile" on profiles for all using (id = auth.uid()) with che
 
 create policy "members read workshop" on workshops for select using (organizer_id = auth.uid() or is_member(id));
 create policy "staff create workshop" on workshops for insert with check (is_staff() and organizer_id = auth.uid());
-create policy "organizer edits workshop" on workshops for update using (organizer_id = auth.uid());
+create policy "organizer edits workshop" on workshops for update using (is_organizer(id));
 create policy "organizer deletes workshop" on workshops for delete using (organizer_id = auth.uid());
 
 create policy "members read roster" on members for select using (is_member(workshop_id) or is_organizer(workshop_id));

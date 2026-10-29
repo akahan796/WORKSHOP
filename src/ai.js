@@ -2,7 +2,7 @@
 // function, or the demo stand-in) for plain results, then writes them as normal
 // workshop data, so everyone's screen updates live.
 import { backend } from './backend/index.js';
-import { nextColor, hmwText, uid } from './lib.js';
+import { nextColor, hmwText, uid, facilitates } from './lib.js';
 import { demoAi } from './backend/demo-ai.js';
 
 // Simulated AI: the built-in stand-in, no API call. Used in demo mode and for any
@@ -79,7 +79,7 @@ export async function placeGrid(w, hmws) {
 }
 
 // Who gets dots: everyone but the organizer, unless the workshop lets the organizer vote too.
-export const canMemberVote = (w, me) => !!me && (me.role !== 'organizer' || !!(w.step_state || {}).organizer_votes);
+export const canMemberVote = (w, me) => !!me && (!facilitates(me) || !!(w.step_state || {}).organizer_votes);
 
 // Weighted tally: the Decider's dots count double.
 export const DECIDER_WEIGHT = 2;

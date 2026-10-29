@@ -16,22 +16,22 @@ export function SetupView({ wsId, user }) {
 
   if (data.loading) return html`<main class="page"><p class="muted">Loading…</p></main>`;
   if (!w) return html`<main class="page"><${Empty} title="Workshop not found" /></main>`;
-  if (!data.isOrganizer) return html`<main class="page"><${Empty} title="Only the organizer can set up this workshop" /></main>`;
+  if (!data.isOrganizer) return html`<main class="page"><${Empty} title="Only facilitators can set up this workshop" /></main>`;
 
   const save = (patch) => backend.updateWorkshop(w.id, patch);
 
   return html`
     <main class="page">
-      <a class="back" href="#/">← All workshops</a>
+      ${data.isOwner ? html`<a class="back" href="#/">← All workshops</a>` : html`<a class="back" href=${'#/w/' + w.id}>← Back to the room</a>`}
       <div class="page-head">
         <div><h1>${w.title}</h1><p class="muted">${[w.project, fmtDate(w.starts_at)].filter(Boolean).join(' · ') || 'Workshop setup'}</p></div>
         <div class="row">
-          <button class="btn btn-ghost" onClick=${() => confirm('Delete this workshop and everything in it?') && backend.deleteWorkshop(w.id).then(() => navigate('/'))}>Delete</button>
+          ${data.isOwner && html`<button class="btn btn-ghost" onClick=${() => confirm('Delete this workshop and everything in it?') && backend.deleteWorkshop(w.id).then(() => navigate('/'))}>Delete</button>`}
           <button class="btn btn-primary" onClick=${() => navigate(`/w/${w.id}`)}>Open workshop room →</button>
         </div>
       </div>
       <nav class="tabs">
-        ${TABS.map(([k, label]) => html`<button key=${k} class=${cx('tab', tab === k && 'tab-on')} onClick=${() => setTab(k)}>${label}${k === 'people' ? html` <span class="count">${data.members.length - 1}</span>` : ''}</button>`)}
+        ${TABS.map(([k, label]) => html`<button key=${k} class=${cx('tab', tab === k && 'tab-on')} onClick=${() => setTab(k)}>${label}${k === 'people' ? html` <span class="count">${data.members.length}</span>` : ''}</button>`)}
       </nav>
       <section class="card setup-panel">
         ${tab === 'details' && html`<${Details} w=${w} save=${save} />`}
@@ -125,7 +125,7 @@ function Agenda({ w, save }) {
 function mailtoInvite(w, m, link) {
   const subject = `You're invited: ${w.title}`;
   const when = w.starts_at ? `\nWhen: ${fmtDate(w.starts_at)}` : '';
-  const body = `Hi ${m.name.split(' ')[0] || 'there'},\n\nYou're invited to join "${w.title}" as ${m.role === 'participant' ? 'a participant' : 'a ' + ROLES[m.role].toLowerCase()}.${when}\n\n${w.description || ''}\n\nJoin here (no account needed):\n${link}\n\nSee you there!`;
+  const body = `Hi ${m.name.split(' ')[0] || 'there'},\n\nYou're invited to join "${w.title}" as a ${ROLES[m.role].toLowerCase()}.${when}\n\n${w.description || ''}\n\nJoin here (no account needed):\n${link}\n\nSee you there!`;
   return `mailto:${encodeURIComponent(m.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
@@ -133,7 +133,10 @@ function People({ w, data }) {
   const [form, setForm] = useState({ name: '', email: '', role: 'participant', discipline: 'design' });
   const [copied, copy] = useCopy();
   const [showSynth, setShowSynth] = useState(false);
+  // The owner is always a facilitator and is listed first, without a role picker or invite.
+  const owner = data.members.find((m) => m.role === 'organizer');
   const people = data.members.filter((m) => m.role !== 'organizer');
+  const roleOptions = html`<option value="participant">Participant</option><option value="researcher">Researcher</option><option value="facilitator">Facilitator</option>`;
 
   async function add(e) {
     e.preventDefault();
@@ -144,18 +147,25 @@ function People({ w, data }) {
 
   return html`
     <div class="stack">
-      <p class="muted">Each person gets a personal guest link. It takes them straight to this workshop, with no account needed. <b>Send invite</b> opens a prefilled email in your mail app.</p>
+      <p class="muted">Each person gets a personal guest link. It takes them straight to this workshop, with no account needed. <b>Send invite</b> opens a prefilled email in your mail app.${' '}<b>Facilitators</b> get the facilitator controls: they run the steps and timer, use the AI actions and can edit this setup. They don't sketch or vote.</p>
       <table class="table">
         <thead><tr><th>Person</th><th>Role</th><th>Discipline</th><th title="The Decider votes in purple and makes the final call">Decider</th><th>Status</th><th>Invite</th><th></th></tr></thead>
         <tbody>
+          ${owner && html`<tr key=${owner.id}>
+            <td><div class="row"><${Avatar} name=${owner.name} color=${owner.color} /><div><b>${owner.name || '(no name)'}</b><div class="muted small">${owner.email}</div></div></div></td>
+            <td><span class="pill pill-facilitator">Facilitator</span> <span class="muted small">Owner</span></td>
+            <td><span class="muted">—</span></td><td></td>
+            <td><span class="pill pill-live">Joined</span></td>
+            <td><span class="muted small">Signed in with an account</span></td><td></td>
+          </tr>`}
           ${people.map((m) => { const link = data.invites[m.id] ? inviteUrl(data.invites[m.id]) : ''; return html`
             <tr key=${m.id}>
               <td><div class="row"><${Avatar} name=${m.name} color=${m.color} /><div><div><b>${m.name || '(no name)'}</b>${m.is_synthetic && html` <span class="pill pill-ai" title="Synthetic participant generated by AI">AI</span>`}</div><div class="muted small persona" title=${m.persona || ''}>${m.is_synthetic ? m.persona : m.email}</div></div></div></td>
-              <td>${m.is_synthetic ? html`<span class="muted">Participant</span>` : html`<select value=${m.role} onChange=${(e) => backend.updateMember(m.id, { role: e.target.value, discipline: e.target.value === 'participant' ? m.discipline || 'design' : null })}>
-                <option value="participant">Participant</option><option value="researcher">Researcher</option></select>`}</td>
+              <td>${m.is_synthetic ? html`<span class="muted">Participant</span>` : html`<select value=${m.role} onChange=${(e) => backend.updateMember(m.id, { role: e.target.value, discipline: e.target.value === 'participant' ? m.discipline || 'design' : null, ...(e.target.value === 'facilitator' ? { is_decider: false } : {}) })}>
+                ${roleOptions}</select>`}</td>
               <td>${m.role === 'participant' ? html`<select value=${m.discipline || ''} onChange=${(e) => backend.updateMember(m.id, { discipline: e.target.value })}>
                 ${Object.entries(DISCIPLINES).map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}</select>` : html`<span class="muted">—</span>`}</td>
-              <td><input type="radio" name="decider" checked=${m.is_decider} onChange=${() => backend.updateMember(m.id, { is_decider: true })} aria-label=${'Make ' + m.name + ' the Decider'} /></td>
+              <td>${m.role !== 'facilitator' && html`<input type="radio" name="decider" checked=${m.is_decider} onChange=${() => backend.updateMember(m.id, { is_decider: true })} aria-label=${'Make ' + m.name + ' the Decider'} />`}</td>
               <td>${m.is_synthetic ? html`<span class="pill pill-ai">Synthetic</span>` : m.joined_at ? html`<span class="pill pill-live">Joined</span>` : html`<span class="pill">Invited</span>`}</td>
               <td>${m.is_synthetic ? html`<span class="muted small">No invite needed</span>` : html`<div class="row nowrap">
                 <button class="btn btn-sm" disabled=${!link} onClick=${() => copy(link, m.id)}>${copied === m.id ? 'Copied ✓' : 'Copy link'}</button>
@@ -169,12 +179,12 @@ function People({ w, data }) {
       <form class="add-person" onSubmit=${add}>
         <input required placeholder="Full name" value=${form.name} onInput=${(e) => setForm({ ...form, name: e.target.value })} />
         <input type="email" placeholder="Email" value=${form.email} onInput=${(e) => setForm({ ...form, email: e.target.value })} />
-        <select value=${form.role} onChange=${(e) => setForm({ ...form, role: e.target.value })}><option value="participant">Participant</option><option value="researcher">Researcher</option></select>
+        <select value=${form.role} onChange=${(e) => setForm({ ...form, role: e.target.value })}>${roleOptions}</select>
         ${form.role === 'participant' && html`<select value=${form.discipline} onChange=${(e) => setForm({ ...form, discipline: e.target.value })}>
           ${Object.entries(DISCIPLINES).map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}</select>`}
         <button class="btn btn-primary">Add</button>
       </form>
-      <div class="row"><button class="btn" onClick=${() => setShowSynth(true)}>✨ Generate synthetic participants</button><span class="muted small">AI participants fill empty seats: they add stickies, HMWs and votes when the organizer asks them to. One can be the Decider.</span></div>
+      <div class="row"><button class="btn" onClick=${() => setShowSynth(true)}>✨ Generate synthetic participants</button><span class="muted small">AI participants fill empty seats: they add stickies, HMWs and votes when a facilitator asks them to. One can be the Decider.</span></div>
       ${showSynth && html`<${SynthModal} w=${w} members=${data.members} onClose=${() => setShowSynth(false)} />`}
     </div>`;
 }
@@ -195,7 +205,7 @@ function SynthModal({ w, members, onClose }) {
   return html`
     <${Modal} title="Generate synthetic participants" onClose=${onClose}>
       <div class="stack">
-        <p class="muted">AI creates realistic OneStream colleagues with their own perspective on ${w.project || 'this project'}. They join immediately and contribute only when you ask them to in the room.</p>
+        <p class="muted">AI creates realistic OneStream colleagues with their own perspective on ${w.project || 'this project'}. They join immediately and contribute only when a facilitator asks them to in the room.</p>
         <${Field} label="How many"><input type="number" min="1" max="8" value=${count} onInput=${(e) => setCount(Number(e.target.value))} /><//>
         <div class="field"><span class="field-label">Disciplines</span>
           <div class="row">${Object.entries(DISCIPLINES).map(([k, v]) => html`<label key=${k} class="toggle"><input type="checkbox" checked=${disc[k]} onChange=${(e) => setDisc({ ...disc, [k]: e.target.checked })} /> ${v}</label>`)}</div>

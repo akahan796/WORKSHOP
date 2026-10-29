@@ -1,6 +1,6 @@
 // App entry: hash router + auth gate.
 //   #/                 dashboard (staff)        #/login       sign in / create account
-//   #/w/<id>/setup     workshop setup (organizer)
+//   #/w/<id>/setup     workshop setup (facilitators)
 //   #/w/<id>           live workshop room (any member)
 //   #/join/<token>     guest invite link
 import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client?deps=react@18.3.1';
@@ -14,7 +14,7 @@ import { RoomView } from './views/room.js';
 import { Header } from './views/ui.js';
 import { SummaryView } from './views/summary.js';
 
-console.log('Workshop AI build 2026-10-28-q · backend:', backend.mode);
+console.log('Workshop AI build 2026-10-29-a · backend:', backend.mode);
 
 function useHash() {
   const [hash, setHash] = useState(location.hash.slice(1) || '/');
@@ -41,10 +41,10 @@ function App() {
     if (!user) return html`<${Header} user=${user} /><${AuthView} />`;
     return html`<${RoomView} wsId=${m[1]} user=${user} />`;
   }
+  if ((m = path.match(/^\/w\/([\w-]+)\/setup/)) && user) return html`<${Header} user=${user} /><${SetupView} wsId=${m[1]} user=${user} />`;
   if (!user || !user.isStaff) {
     return html`<${Header} user=${user} /><${AuthView} guest=${user && !user.isStaff} />`;
   }
-  if ((m = path.match(/^\/w\/([\w-]+)\/setup/))) return html`<${Header} user=${user} /><${SetupView} wsId=${m[1]} user=${user} />`;
   return html`<${Header} user=${user} /><${Dashboard} user=${user} />`;
 }
 

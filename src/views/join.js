@@ -31,7 +31,7 @@ export function JoinView({ token, user }) {
     <${Header} />
     <main class="auth">
       <form class="auth-card card stack" onSubmit=${join}>
-        <span class="eyebrow">You're invited as ${invite.member_role === 'participant' ? 'a participant' : 'the ' + ROLES[invite.member_role].toLowerCase()}</span>
+        <span class="eyebrow">You're invited as ${invite.member_role === 'researcher' ? 'the researcher' : 'a ' + ROLES[invite.member_role].toLowerCase()}</span>
         <h1>${invite.workshop_title}</h1>
         <p class="muted">Confirm your details to join. Your link is personal, so don't share it.</p>
         ${user && user.isStaff && html`<p class="notice">You're signed in as an organizer (${user.email}). Joining switches only this tab to the guest; you stay signed in as organizer in your other tabs.</p>`}

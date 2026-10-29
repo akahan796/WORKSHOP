@@ -630,13 +630,19 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user } } = await sb.auth.getUser(authHeader.replace(/^Bearer\s+/i, ""));
-    if (!user || user.is_anonymous) return json({ error: "Only signed-in organizers can use AI." }, 401);
+    if (!user) return json({ error: "Only the workshop's facilitators can use AI." }, 401);
 
     const body = await req.json();
     const task = TASKS[body.task];
     if (!task) return json({ error: `Unknown task: ${body.task}` }, 400);
     const { data: ws } = await sb.from("workshops").select("*").eq("id", body.workshop_id).maybeSingle();
-    if (!ws || ws.organizer_id !== user.id) return json({ error: "Only this workshop's organizer can use AI." }, 403);
+    // The creator, or a member with the Facilitator role (guest facilitators sign in anonymously).
+    let allowed = !!ws && ws.organizer_id === user.id && !user.is_anonymous;
+    if (ws && !allowed) {
+      const { data: me } = await sb.from("members").select("role").eq("workshop_id", ws.id).eq("user_id", user.id).maybeSingle();
+      allowed = me?.role === "facilitator";
+    }
+    if (!allowed) return json({ error: "Only this workshop's facilitators can use AI." }, 403);
 
     body.__startedAt = startedAt;
     return json(await task(sb, ws, body));
