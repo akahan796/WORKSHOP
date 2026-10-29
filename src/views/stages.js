@@ -1,7 +1,7 @@
 // The stage shown for each workshop step.
 import { html, useState, useEffect, useMemo, cx, DISCIPLINES, ROLES, fmtDate, hmwText, facilitates } from '../lib.js';
 import { backend } from '../backend/index.js';
-import { activeSteps, defaultIntro, STICKY_KINDS } from '../steps.js';
+import { activeSteps, defaultIntro, STICKY_KINDS, introSlideOrder } from '../steps.js';
 import { Avatar, Empty, AiButton } from './ui.js';
 import { synthResearch, synthHmw } from '../ai.js';
 import { PdfSlide } from '../pdf.js';
@@ -71,53 +71,74 @@ export function CoverStage({ w, data }) {
     </div>`;
 }
 
-// ── Step 1: Introductions ──
-export function IntroStage({ w, data }) {
+// ── Step 1: Introduction ──
+// One slide per section, in the order set in Setup → Introduction. Facilitators
+// present (everyone follows, like the research share-out); others can browse on their own.
+export function IntroStage({ w, data, isOrganizer }) {
   const intro = { ...defaultIntro(), ...w.intro };
   const { owner, assigned, hosts } = workshopHosts(data.members);
   // A welcome written in the owner's name ("I'm Alex Kahan…") is shown in the facilitator's.
   const welcome = assigned.length && owner?.name ? (intro.welcome || '').split(owner.name).join(assigned[0].name) : intro.welcome;
   const steps = activeSteps(w);
   const people = data.members.filter((m) => !facilitates(m));
+  const slides = introSlideOrder(intro).filter((s) => s.enabled);
+  const total = slides.length;
+
+  const shared = Math.min(Math.max(1, (w.step_state || {}).intro_page || 1), Math.max(1, total));
+  const [pending, setPending] = useState(null);
+  const [local, setLocal] = useState(null);
+  useEffect(() => { if (pending === shared) setPending(null); }, [shared]);
+  const page = Math.min(local || pending || shared, Math.max(1, total));
+  const go = (p) => {
+    p = Math.min(Math.max(1, p), total);
+    if (isOrganizer) { setPending(p); backend.setStepState(w.id, { intro_page: p }); } else setLocal(p);
+  };
+  useEffect(() => {
+    const on = (e) => {
+      if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') go(page + 1);
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(page - 1);
+    };
+    addEventListener('keydown', on);
+    return () => removeEventListener('keydown', on);
+  });
+
+  const body = {
+    organizer: () => html`
+      <div class="islide-hosts">${hosts.map((m) => html`<div key=${m.id} class="islide-host"><${Avatar} name=${m.name} color=${m.color} size=${64} /><div><b>${m.name}</b><span>Organizer & facilitator</span></div></div>`)}</div>
+      ${welcome && html`<p class="islide-text">${welcome}</p>`}`,
+    project: () => html`<p class="islide-text">${intro.background || html`<span class="muted">The organizer hasn't added background yet.</span>`}</p>`,
+    overview: () => html`<div class="islide-cols">
+      <p class="islide-text">${intro.overview}</p>
+      <ol class="islide-agenda">${steps.map((s) => html`<li key=${s.key}><span>${s.title}</span><span class="muted">${s.minutes} min</span></li>`)}</ol></div>`,
+    rules: () => html`<ul class="islide-list">${(intro.rules || []).map((r, i) => html`<li key=${i}>${r}</li>`)}</ul>`,
+    expectations: () => html`<p class="islide-text">${intro.expectations}</p>`,
+    people: () => html`<div class="islide-people">${people.map((m) => html`
+      <div key=${m.id} class=${cx('islide-person', !m.joined_at && 'absent')}>
+        <${Avatar} name=${m.name} color=${m.color} size=${44} />
+        <div><b>${m.name}</b>${m.is_synthetic && html` <span class="pill pill-ai">AI</span>`}<span>${m.role === 'participant' ? DISCIPLINES[m.discipline] : ROLES[m.role]}${m.is_decider ? ' · Decider' : ''}${!m.joined_at ? ' · not here yet' : ''}</span></div>
+      </div>`)}</div>`,
+  };
+  const slide = slides[page - 1];
+
+  if (!total) return html`<${Empty} title="No introduction slides">${isOrganizer ? 'Turn some on in Setup → Introduction.' : ''}<//>`;
   return html`
-    <div class="intro">
-      <section class="intro-hero">
-        <span class="eyebrow">${w.project || 'Design thinking workshop'}${w.starts_at ? ' · ' + fmtDate(w.starts_at) : ''}</span>
-        <h1>${w.title}</h1>
-        ${w.description && html`<p class="lead">${w.description}</p>`}
-      </section>
-      <div class="intro-grid">
-        <section class="card">
-          <h3>Your organizer${hosts.length > 1 ? 's' : ''}</h3>
-          <div class="stack-sm">${hosts.map((m) => html`<div key=${m.id} class="row"><${Avatar} name=${m.name} color=${m.color} size=${44} /><div><b>${m.name}</b><div class="muted small">Organizer & facilitator</div></div></div>`)}</div>
-          ${welcome && html`<p>${welcome}</p>`}
+    <div class="intro-present">
+      <div class="islide-box">
+        <section class="islide" key=${slide.key}>
+          <span class="islide-eyebrow">${w.title}</span>
+          <h2 class="islide-title">${slide.key === 'organizer' && hosts.length > 1 ? 'Your organizers' : slide.title}</h2>
+          <div class="islide-body">${body[slide.key]()}</div>
+          <span class="islide-foot">${page} / ${total}</span>
         </section>
-        <section class="card">
-          <h3>About the project</h3>
-          <p>${intro.background || html`<span class="muted">The organizer hasn't added background yet.</span>`}</p>
-        </section>
-        <section class="card">
-          <h3>Workshop overview</h3>
-          <p>${intro.overview}</p>
-          <ol class="intro-agenda">${steps.map((s) => html`<li key=${s.key}><span>${s.title}</span><span class="muted">${s.minutes} min</span></li>`)}</ol>
-        </section>
-        <section class="card">
-          <h3>Ground rules</h3>
-          <ul class="rules">${(intro.rules || []).map((r, i) => html`<li key=${i}>${r}</li>`)}</ul>
-          <h3>What to expect</h3>
-          <p>${intro.expectations}</p>
-        </section>
-        <section class="card span-2">
-          <h3>Who's here</h3>
-          <div class="people-grid">
-            ${people.map((m) => html`
-              <div key=${m.id} class=${cx('person', !m.joined_at && 'absent')}>
-                <${Avatar} name=${m.name} color=${m.color} size=${40} />
-                <div><b>${m.name}</b>${m.is_synthetic && html` <span class="pill pill-ai">AI</span>`}<div class="muted small">${m.role === 'participant' ? DISCIPLINES[m.discipline] : ROLES[m.role]}${m.is_decider ? ' · Decider' : ''}</div>
-                ${!m.joined_at && html`<div class="muted small">Not joined yet</div>`}</div>
-              </div>`)}
-          </div>
-        </section>
+      </div>
+      <div class="slide-bar">
+        <button class="btn btn-sm" disabled=${page <= 1} onClick=${() => go(page - 1)}>←</button>
+        <span class="small">Slide ${page} / ${total}</span>
+        <button class="btn btn-sm" disabled=${page >= total} onClick=${() => go(page + 1)}>→</button>
+        ${isOrganizer ? html`<span class="pill pill-live">You're presenting</span>`
+          : local ? html`<button class="btn btn-sm btn-primary" onClick=${() => setLocal(null)}>Back to presenter</button>`
+          : html`<span class="muted small">Following the presenter</span>`}
       </div>
     </div>`;
 }

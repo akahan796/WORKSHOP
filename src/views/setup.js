@@ -1,7 +1,7 @@
 // Organizer workshop setup: details, introduction, agenda, people & invites, research.
 import { html, useState, navigate, nextColor, inviteUrl, DISCIPLINES, ROLES, cx, fmtDate } from '../lib.js';
 import { backend } from '../backend/index.js';
-import { STEPS, BUILT_PHASE, defaultAgenda, defaultIntro } from '../steps.js';
+import { STEPS, BUILT_PHASE, defaultAgenda, defaultIntro, introSlideOrder } from '../steps.js';
 import { useWorkshop } from '../useWorkshop.js';
 import { Field, SaveOnBlur, Avatar, useCopy, Empty, Modal } from './ui.js';
 import { generateSynthetic, isSimulated } from '../ai.js';
@@ -78,7 +78,8 @@ function Intro({ w, save }) {
   const set = (k) => (v) => save({ intro: { ...intro, [k]: v } });
   return html`
     <div class="stack">
-      <p class="muted">This is what everyone sees in step 1. It's prefilled; edit it to fit your session.</p>
+      <p class="muted">This is what everyone sees in step 1, one slide per section. It's prefilled; edit it to fit your session.</p>
+      <${IntroSlideOrder} intro=${intro} save=${(slides) => save({ intro: { ...intro, slides } })} />
       <${Field} label="About me (organizer intro)" hint="Who you are and your role in this workshop. If you assign a facilitator in People & invites, the intro shows them as the organizer, with your name in this text replaced by theirs."><${SaveOnBlur} multiline value=${intro.welcome} onSave=${set('welcome')} /><//>
       <${Field} label="Project background" hint="The problem space and why we're here."><${SaveOnBlur} multiline rows="4" value=${intro.background} onSave=${set('background')} /><//>
       <${Field} label="Workshop overview"><${SaveOnBlur} multiline value=${intro.overview} onSave=${set('overview')} /><//>
@@ -86,6 +87,27 @@ function Intro({ w, save }) {
         <${SaveOnBlur} multiline rows="6" value=${(intro.rules || []).join('\n')} onSave=${(v) => set('rules')(v.split('\n').map((s) => s.trim()).filter(Boolean))} />
       <//>
       <${Field} label="What to expect"><${SaveOnBlur} multiline value=${intro.expectations} onSave=${set('expectations')} /><//>
+    </div>`;
+}
+
+function IntroSlideOrder({ intro, save }) {
+  const order = introSlideOrder(intro);
+  const commit = (list) => save(list.map(({ key, enabled }) => ({ key, enabled })));
+  const move = (i, d) => { const l = order.slice(); [l[i], l[i + d]] = [l[i + d], l[i]]; commit(l); };
+  let n = 0;
+  return html`
+    <div class="field"><span class="field-label">Slide order</span>
+      <ol class="agenda-edit">
+        ${order.map((s, i) => html`
+          <li key=${s.key} class=${cx('agenda-row', !s.enabled && 'off')}>
+            <input type="checkbox" checked=${s.enabled} onChange=${(e) => commit(order.map((x) => (x.key === s.key ? { ...x, enabled: e.target.checked } : x)))} aria-label=${'Show ' + s.title} />
+            <span class="step-num">${s.enabled ? ++n : '–'}</span>
+            <b class="grow">${s.title}</b>
+            <button class="btn btn-ghost btn-sm" disabled=${i === 0} aria-label=${'Move ' + s.title + ' up'} onClick=${() => move(i, -1)}>↑</button>
+            <button class="btn btn-ghost btn-sm" disabled=${i === order.length - 1} aria-label=${'Move ' + s.title + ' down'} onClick=${() => move(i, 1)}>↓</button>
+          </li>`)}
+      </ol>
+      <span class="field-hint">Untick a slide to skip it.</span>
     </div>`;
 }
 

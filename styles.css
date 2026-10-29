@@ -349,3 +349,24 @@ textarea { resize: vertical; }
 .cover-person { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 56px; text-align: center; }
 .cover-person.absent { opacity: .35; }
 @media (prefers-reduced-motion: reduce) { .cover-pulse { animation: none; } }
+
+/* Introduction slides (one section per 16:9 slide, sized like the research deck) */
+.intro-present { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 480px; }
+.islide-box { flex: 1; min-height: 320px; display: flex; align-items: center; justify-content: center; background: #2B2D31; border-radius: var(--radius); padding: 16px; container-type: size; overflow: hidden; }
+.islide { position: relative; width: min(100cqw, 100cqh * 16 / 9); aspect-ratio: 16 / 9; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.4); container-type: inline-size;
+  padding: 6cqw 7cqw 5cqw 8cqw; display: flex; flex-direction: column; overflow: hidden; border-left: 1.4cqw solid var(--brand); }
+.islide-eyebrow { font-size: 1.4cqw; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.islide-title { font-size: 4.4cqw; line-height: 1.1; margin: 1.2cqw 0 3cqw; }
+.islide-body { flex: 1; min-height: 0; font-size: 2.2cqw; line-height: 1.45; }
+.islide-text { margin: 0; max-width: 62cqw; }
+.islide-foot { position: absolute; right: 3cqw; bottom: 2.4cqw; font-size: 1.3cqw; color: var(--muted); }
+.islide-hosts { display: flex; flex-wrap: wrap; gap: 2cqw 5cqw; margin-bottom: 3cqw; }
+.islide-host { display: flex; align-items: center; gap: 1.6cqw; }
+.islide-host b, .islide-person b { display: block; }
+.islide-host span, .islide-person span { color: var(--muted); font-size: .75em; }
+.islide-cols { display: grid; grid-template-columns: 1.1fr 1fr; gap: 5cqw; align-items: start; }
+.islide-agenda { margin: 0; padding-left: 1.2em; font-size: .72em; line-height: 1.5; }
+.islide-agenda li span:last-child { float: right; }
+.islide-list { margin: 0; padding-left: 1.2em; } .islide-list li { padding: .25em 0; }
+.islide-people { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2cqw 3cqw; font-size: .8em; }
+.islide-person { display: flex; align-items: center; gap: 1.2cqw; } .islide-person.absent { opacity: .45; }

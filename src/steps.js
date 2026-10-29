@@ -1,7 +1,7 @@
 // The workshop agenda, from the Design Thinking Workshop Runbook. `phase` is the
 // build phase that implements the step's interactive stage (see SPEC.md).
 export const STEPS = [
-  { key: 'intro', title: 'Introductions', minutes: 15, phase: 1,
+  { key: 'intro', title: 'Introduction', minutes: 15, phase: 1,
     blurb: 'Open with introductions and orient the group: who we are, the project, the workshop overview, rules and what to expect.' },
   { key: 'research', title: 'UX Research Share Out', minutes: 60, phase: 1,
     blurb: 'Research presents the findings. Everyone else silently captures pain points, opportunities and observations, one idea per sticky. Q&A at the end.' },
@@ -69,3 +69,20 @@ export const STICKY_KINDS = {
   observation: { label: 'Observation', short: 'Obs.' },
   question: { label: 'Question for Q&A', short: 'Q' },
 };
+
+// The Introduction step is a short deck: one slide per section, shown in the order
+// saved in intro.slides ([{ key, enabled }]); sections it doesn't list follow, on.
+export const INTRO_SLIDES = [
+  { key: 'organizer', title: 'Your organizer' },
+  { key: 'project', title: 'About the project' },
+  { key: 'overview', title: 'Workshop overview' },
+  { key: 'rules', title: 'Ground rules' },
+  { key: 'expectations', title: 'What to expect' },
+  { key: 'people', title: "Who's here" },
+];
+export function introSlideOrder(intro) {
+  const known = Object.fromEntries(INTRO_SLIDES.map((s) => [s.key, s]));
+  const saved = ((intro && intro.slides) || []).filter((s) => known[s.key]);
+  const missing = INTRO_SLIDES.filter((s) => !saved.some((x) => x.key === s.key)).map((s) => ({ key: s.key, enabled: true }));
+  return [...saved, ...missing].map((s) => ({ ...known[s.key], enabled: s.enabled !== false }));
+}
