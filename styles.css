@@ -385,3 +385,15 @@ textarea { resize: vertical; }
 .slide-tile-caret { color: var(--muted); }
 .slide-tile-body { border-top: 1px solid var(--line); padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 12px; background: #FAFBFC; border-radius: 0 0 8px 8px; }
 .pill-hidden { background: #ECEEF1; color: var(--muted); }
+
+/* Collapsible agenda sidebar */
+.rail-head { display: flex; align-items: center; justify-content: space-between; }
+.rail-head h4 { margin-bottom: 4px; }
+.rail-toggle { color: var(--muted); font-size: 16px; }
+.rail-mini { width: 52px; padding: 8px 6px; align-items: center; gap: 8px; }
+.rail-mini-steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.rail-mini-steps .step-num { border: 0; cursor: pointer; }
+.rail-mini-steps .step-num:disabled { cursor: default; }
+.rail-mini-steps .step-num.on { background: var(--brand); color: #fff; }
+.rail-mini-steps .step-num.done { background: var(--ok-soft); color: var(--ok); }
+.rail-mini-people { margin-top: 4px; font-weight: 700; }

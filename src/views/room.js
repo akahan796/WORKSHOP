@@ -51,6 +51,9 @@ function Timer({ w, step, isOrganizer }) {
 export function RoomView({ wsId, user }) {
   const data = useWorkshop(wsId, user);
   const [showResearch, setShowResearch] = useState(false);
+  // Agenda sidebar: collapsed by default for participants, open for facilitators;
+  // each viewer's own choice is remembered in this browser.
+  const [railPref, setRailPref] = useState(() => { try { return localStorage.getItem('wai_rail_' + user.id); } catch { return null; } });
   const { workshop: w, me, isOrganizer } = data;
 
   if (data.loading) return html`<${Header} user=${user} /><main class="page"><p class="muted">Loading…</p></main>`;
@@ -73,6 +76,8 @@ export function RoomView({ wsId, user }) {
     await backend.setStepState(w.id, { timer_paused_ms: null });
   }
 
+  const railCollapsed = railPref ? railPref === 'collapsed' : !isOrganizer;
+  const setRail = (collapsed) => { const v = collapsed ? 'collapsed' : 'open'; setRailPref(v); try { localStorage.setItem('wai_rail_' + user.id, v); } catch {} };
   const props = { w, data, me, user, step, isOrganizer, isResearcher };
   const Stage = { intro: IntroStage, research: ResearchStage, hmw: HmwStage, grid: GridStage, vote_hmw: VoteHmwStage,
     crazy8: Crazy8Stage, share8: Share8Stage, solution: SolutionStage, review: ReviewStage, vote_solution: VoteSolutionStage,
@@ -98,8 +103,17 @@ export function RoomView({ wsId, user }) {
       <//>
       ${w.status === 'draft' && html`<div class="banner">${isOrganizer ? 'Everyone sees the cover while they join. Click Start workshop when everyone is here.' : "The workshop hasn't started yet. Hang tight: this page updates automatically."}</div>`}
       <div class="room-body">
+        ${railCollapsed ? html`
+        <aside class="rail rail-mini" aria-label="Agenda">
+          <button class="icon-btn rail-toggle" title="Show agenda and people" aria-expanded="false" onClick=${() => setRail(false)}>»</button>
+          <ol class="rail-mini-steps">
+            <li><button class=${cx('step-num', onCover && 'on', !onCover && 'done')} title="Cover" disabled=${!isOrganizer || w.status === 'draft'} onClick=${() => goTo(-1)}>◆</button></li>
+            ${steps.map((s, i) => html`<li key=${s.key}><button class=${cx('step-num', i === idx && 'on', i < idx && 'done')} title=${`${i + 1}. ${s.title}`} disabled=${!isOrganizer} onClick=${() => goTo(i)}>${i < idx ? '✓' : i + 1}</button></li>`)}
+          </ol>
+          <span class="rail-mini-people muted small" title="People here">${data.members.filter((m) => m.joined_at).length}/${data.members.length}</span>
+        </aside>` : html`
         <aside class="rail">
-          <h4>Agenda</h4>
+          <div class="rail-head"><h4>Agenda</h4><button class="icon-btn rail-toggle" title="Hide sidebar" aria-expanded="true" onClick=${() => setRail(true)}>«</button></div>
           <ol class="rail-steps">
             <li><button class=${cx('rail-step', onCover && 'on', !onCover && 'done')} disabled=${!isOrganizer || w.status === 'draft'} onClick=${() => goTo(-1)}>
               <span class="step-num">◆</span><span class="grow">Cover</span></button></li>
@@ -119,7 +133,7 @@ export function RoomView({ wsId, user }) {
                 <span class="muted small">${m.is_decider ? 'Decider' : m.role === 'participant' ? (DISCIPLINES[m.discipline] || '').replace('Product ', '') : ROLES[m.role]}</span>
               </li>`)}
           </ul>
-        </aside>
+        </aside>`}
         <main class="stage"><${StageToShow} ...${props} /></main>
       </div>
       ${isOrganizer && html`
