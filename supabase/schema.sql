@@ -83,14 +83,21 @@ create table stickies (
 create index on stickies (workshop_id);
 
 -- ── Helpers (security definer so policies can call them without recursion) ──
+-- Registered (non-anonymous) accounts are admins: they see and edit every workshop.
+create or replace function is_staff() returns boolean
+language sql stable as $$
+  select auth.uid() is not null and coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) = false;
+$$;
+
 create or replace function is_member(ws uuid) returns boolean
 language sql security definer stable set search_path = public as $$
-  select exists (select 1 from members where workshop_id = ws and user_id = auth.uid());
+  select is_staff() or exists (select 1 from members where workshop_id = ws and user_id = auth.uid());
 $$;
 
 create or replace function is_organizer(ws uuid) returns boolean
 language sql security definer stable set search_path = public as $$
-  select exists (select 1 from workshops where id = ws and organizer_id = auth.uid())
+  select is_staff()
+      or exists (select 1 from workshops where id = ws and organizer_id = auth.uid())
       or exists (select 1 from members where workshop_id = ws and user_id = auth.uid() and role = 'facilitator');
 $$;
 
@@ -102,11 +109,6 @@ $$;
 create or replace function my_member_id(ws uuid) returns uuid
 language sql security definer stable set search_path = public as $$
   select id from members where workshop_id = ws and user_id = auth.uid() limit 1;
-$$;
-
-create or replace function is_staff() returns boolean
-language sql stable as $$
-  select auth.uid() is not null and coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) = false;
 $$;
 
 -- Guest invite: bind the calling (anonymous) user to the invited member.
@@ -189,6 +191,7 @@ alter table research  enable row level security;
 alter table stickies  enable row level security;
 
 create policy "own profile" on profiles for all using (id = auth.uid()) with check (id = auth.uid());
+create policy "staff read profiles" on profiles for select using (is_staff());
 
 create policy "members read workshop" on workshops for select using (organizer_id = auth.uid() or is_member(id));
 create policy "staff create workshop" on workshops for insert with check (is_staff() and organizer_id = auth.uid());

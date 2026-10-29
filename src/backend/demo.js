@@ -87,7 +87,9 @@ export function createDemoBackend() {
       const me = requireUser();
       const db = load();
       const mine = new Set(db.members.filter((m) => m.user_id === me.id).map((m) => m.workshop_id));
-      return db.workshops.filter((w) => w.organizer_id === me.id || mine.has(w.id))
+      const name = Object.fromEntries(db.users.map((u) => [u.id, u.name || u.email]));
+      return db.workshops.filter((w) => me.isStaff || w.organizer_id === me.id || mine.has(w.id))
+        .map((w) => ({ ...w, organizer_name: name[w.organizer_id] || '' }))
         .sort((a, b) => b.created_at.localeCompare(a.created_at));
     },
     async createWorkshop(fields) {

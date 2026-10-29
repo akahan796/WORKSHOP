@@ -644,8 +644,8 @@ Deno.serve(async (req) => {
     const task = TASKS[body.task];
     if (!task) return json({ error: `Unknown task: ${body.task}` }, 400);
     const { data: ws } = await sb.from("workshops").select("*").eq("id", body.workshop_id).maybeSingle();
-    // The creator, or a member with the Facilitator role (guest facilitators sign in anonymously).
-    let allowed = !!ws && ws.organizer_id === user.id && !user.is_anonymous;
+    // Any registered admin, or a member with the Facilitator role (guest facilitators sign in anonymously).
+    let allowed = !!ws && !user.is_anonymous;
     if (ws && !allowed) {
       const { data: me } = await sb.from("members").select("role").eq("workshop_id", ws.id).eq("user_id", user.id).maybeSingle();
       allowed = me?.role === "facilitator";

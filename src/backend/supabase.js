@@ -56,8 +56,13 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
       if (guest) { useClient(false); await this.init(); authListeners.forEach((fn) => fn(user)); }
     },
 
+    // Admins see every workshop; each one carries its creator's name.
     async listMyWorkshops() {
-      return ok(await sb.from('workshops').select('*').order('created_at', { ascending: false }));
+      const list = ok(await sb.from('workshops').select('*').order('created_at', { ascending: false }));
+      const ids = [...new Set(list.map((w) => w.organizer_id))];
+      const people = ids.length ? ok(await sb.from('profiles').select('id, name, email').in('id', ids)) : [];
+      const name = Object.fromEntries(people.map((p) => [p.id, p.name || p.email]));
+      return list.map((w) => ({ ...w, organizer_name: name[w.organizer_id] || '' }));
     },
     async createWorkshop(fields) { return ok(await sb.from('workshops').insert(fields).select().single()); },
     async getWorkshop(id) { return ok(await sb.from('workshops').select('*').eq('id', id).maybeSingle()); },

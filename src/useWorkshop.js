@@ -20,7 +20,7 @@ export function useWorkshop(wsId, user) {
       if (user) {
         const w = await backend.getWorkshop(wsId);
         const mine = patch.members.find((m) => m.user_id === user.id);
-        if (w && (w.organizer_id === user.id || mine?.role === 'facilitator')) patch.invites = await backend.listInvites(wsId);
+        if (w && (user.isStaff || w.organizer_id === user.id || mine?.role === 'facilitator')) patch.invites = await backend.listInvites(wsId);
       }
     }
     if (table === 'research') patch.research = await backend.listResearch(wsId);
@@ -43,8 +43,8 @@ export function useWorkshop(wsId, user) {
   }, [load]);
 
   const me = user ? state.members.find((m) => m.user_id === user.id) || null : null;
-  // isOwner: created the workshop. isOrganizer: may run it (the owner or a facilitator).
+  // isOwner: created the workshop. isOrganizer: may run it (any admin, or a guest facilitator).
   const isOwner = !!(state.workshop && user && state.workshop.organizer_id === user.id);
-  const isOrganizer = isOwner || me?.role === 'facilitator';
+  const isOrganizer = isOwner || !!user?.isStaff || me?.role === 'facilitator';
   return { ...state, me, isOwner, isOrganizer, reload: load };
 }

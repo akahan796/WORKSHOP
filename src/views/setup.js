@@ -23,11 +23,11 @@ export function SetupView({ wsId, user }) {
 
   return html`
     <main class="page">
-      ${data.isOwner ? html`<a class="back" href="#/">← All workshops</a>` : html`<a class="back" href=${'#/w/' + w.id}>← Back to the room</a>`}
+      ${user.isStaff ? html`<a class="back" href="#/">← All workshops</a>` : html`<a class="back" href=${'#/w/' + w.id}>← Back to the room</a>`}
       <div class="page-head">
         <div><h1>${w.title}</h1><p class="muted">${[w.project, fmtDate(w.starts_at)].filter(Boolean).join(' · ') || 'Workshop setup'}</p></div>
         <div class="row">
-          ${data.isOwner && html`<button class="btn btn-ghost" title="Start over: clear everything the session produced and keep the setup"
+          ${user.isStaff && html`<button class="btn btn-ghost" title="Start over: clear everything the session produced and keep the setup"
             onClick=${() => confirm('Reset this workshop so it can run again from the start?\n\nDeletes all stickies, HMWs, votes, sketches, the user flow, prototypes and decisions. Keeps the details, introduction, agenda, people and research decks. This can\'t be undone.') && backend.resetWorkshop(w.id)}>Reset</button>`}
           ${data.isOwner && html`<button class="btn btn-ghost" onClick=${() => confirm('Delete this workshop and everything in it?') && backend.deleteWorkshop(w.id).then(() => navigate('/'))}>Delete</button>`}
           <button class="btn btn-primary" onClick=${() => navigate(`/w/${w.id}`)}>Open workshop room →</button>

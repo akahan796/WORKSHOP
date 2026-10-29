@@ -130,7 +130,7 @@ export function Dashboard({ user }) {
   return html`
     <main class="page">
       <div class="page-head">
-        <div><h1>Your workshops</h1><p class="muted">Set up a workshop, invite your team, and run it live.</p></div>
+        <div><h1>All workshops</h1><p class="muted">Every admin sees and edits every workshop. Set one up, invite your team, and run it live.</p></div>
         <div class="row">
           <button class="btn btn-primary" onClick=${() => setCreating(true)}>+ New workshop</button>
         </div>
@@ -144,8 +144,9 @@ export function Dashboard({ user }) {
             <div class="row between"><span class=${'pill pill-' + w.status}>${STATUS[w.status]}</span><span class="muted small">${fmtDate(w.starts_at)}</span></div>
             <h3>${w.title}</h3>
             <p class="muted small">${w.project}</p>
+            <p class="muted small">Created by ${w.organizer_id === user.id ? 'you' : w.organizer_name || 'another admin'}</p>
             <div class="row">
-              ${w.organizer_id === user.id && html`<button class="btn btn-sm" onClick=${() => navigate(`/w/${w.id}/setup`)}>Set up</button>`}
+              <button class="btn btn-sm" onClick=${() => navigate(`/w/${w.id}/setup`)}>Set up</button>
               <button class="btn btn-sm btn-primary" onClick=${() => navigate(`/w/${w.id}`)}>${w.status === 'live' ? 'Join room' : 'Open room'}</button>
             </div>
           </article>`)}
