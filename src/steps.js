@@ -72,6 +72,7 @@ export const STICKY_KINDS = {
 
 // The Introduction step is a short deck: one slide per section, shown in the order
 // saved in intro.slides ([{ key, enabled }]); sections it doesn't list follow, on.
+// Custom slides live only in intro.slides: { key: 'custom-…', enabled, title, text }.
 export const INTRO_SLIDES = [
   { key: 'organizer', title: 'Your organizer' },
   { key: 'project', title: 'About the project' },
@@ -82,7 +83,10 @@ export const INTRO_SLIDES = [
 ];
 export function introSlideOrder(intro) {
   const known = Object.fromEntries(INTRO_SLIDES.map((s) => [s.key, s]));
-  const saved = ((intro && intro.slides) || []).filter((s) => known[s.key]);
+  const isCustom = (key) => String(key).startsWith('custom-');
+  const saved = ((intro && intro.slides) || []).filter((s) => known[s.key] || isCustom(s.key));
   const missing = INTRO_SLIDES.filter((s) => !saved.some((x) => x.key === s.key)).map((s) => ({ key: s.key, enabled: true }));
-  return [...saved, ...missing].map((s) => ({ ...known[s.key], enabled: s.enabled !== false }));
+  return [...saved, ...missing].map((s) => isCustom(s.key)
+    ? { key: s.key, custom: true, title: s.title || '', text: s.text || '', enabled: s.enabled !== false }
+    : { ...known[s.key], enabled: s.enabled !== false });
 }

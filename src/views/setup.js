@@ -1,5 +1,5 @@
 // Organizer workshop setup: details, introduction, agenda, people & invites, research.
-import { html, useState, navigate, nextColor, inviteUrl, DISCIPLINES, ROLES, cx, fmtDate } from '../lib.js';
+import { html, useState, navigate, nextColor, inviteUrl, DISCIPLINES, ROLES, cx, fmtDate, uid } from '../lib.js';
 import { backend } from '../backend/index.js';
 import { STEPS, BUILT_PHASE, defaultAgenda, defaultIntro, introSlideOrder } from '../steps.js';
 import { useWorkshop } from '../useWorkshop.js';
@@ -75,39 +75,89 @@ function Details({ w, save }) {
 
 function Intro({ w, save }) {
   const intro = { ...defaultIntro(), ...w.intro };
-  const set = (k) => (v) => save({ intro: { ...intro, [k]: v } });
   return html`
     <div class="stack">
-      <p class="muted">This is what everyone sees in step 1, one slide per section. It's prefilled; edit it to fit your session.</p>
-      <${IntroSlideOrder} intro=${intro} save=${(slides) => save({ intro: { ...intro, slides } })} />
-      <${Field} label="About me (organizer intro)" hint="Who you are and your role in this workshop. If you assign a facilitator in People & invites, the intro shows them as the organizer, with your name in this text replaced by theirs."><${SaveOnBlur} multiline value=${intro.welcome} onSave=${set('welcome')} /><//>
-      <${Field} label="Project background" hint="The problem space and why we're here."><${SaveOnBlur} multiline rows="4" value=${intro.background} onSave=${set('background')} /><//>
-      <${Field} label="Workshop overview"><${SaveOnBlur} multiline value=${intro.overview} onSave=${set('overview')} /><//>
-      <${Field} label="Ground rules" hint="One rule per line.">
-        <${SaveOnBlur} multiline rows="6" value=${(intro.rules || []).join('\n')} onSave=${(v) => set('rules')(v.split('\n').map((s) => s.trim()).filter(Boolean))} />
-      <//>
-      <${Field} label="What to expect"><${SaveOnBlur} multiline value=${intro.expectations} onSave=${set('expectations')} /><//>
+      <p class="muted">This is what everyone sees in step 1, one slide per section. It's prefilled; edit it to fit your session.
+        Drag the tiles to reorder them, hide the ones you don't need, and expand a tile to edit its text.</p>
+      <${IntroSlides} intro=${intro} save=${(patch) => save({ intro: { ...intro, ...patch } })} />
     </div>`;
 }
 
-function IntroSlideOrder({ intro, save }) {
+// The text each built-in slide shows, edited inside its tile.
+function SlideFields({ s, intro, save }) {
+  const set = (k) => (v) => save({ [k]: v });
+  if (s.key === 'organizer') return html`<${Field} label="About me (organizer intro)" hint="Who you are and your role in this workshop. If you assign a facilitator in People & invites, the slide shows them as the organizer, with your name in this text replaced by theirs."><${SaveOnBlur} multiline value=${intro.welcome} onSave=${set('welcome')} /><//>`;
+  if (s.key === 'project') return html`<${Field} label="Project background" hint="The problem space and why we're here."><${SaveOnBlur} multiline rows="4" value=${intro.background} onSave=${set('background')} /><//>`;
+  if (s.key === 'overview') return html`<${Field} label="Workshop overview" hint="The agenda from the Agenda tab is listed beside it."><${SaveOnBlur} multiline value=${intro.overview} onSave=${set('overview')} /><//>`;
+  if (s.key === 'rules') return html`<${Field} label="Ground rules" hint="One rule per line.">
+    <${SaveOnBlur} multiline rows="6" value=${(intro.rules || []).join('\n')} onSave=${(v) => save({ rules: v.split('\n').map((x) => x.trim()).filter(Boolean) })} /><//>`;
+  if (s.key === 'expectations') return html`<${Field} label="What to expect"><${SaveOnBlur} multiline value=${intro.expectations} onSave=${set('expectations')} /><//>`;
+  if (s.key === 'people') return html`<p class="muted small">Shows everyone invited in People & invites, with who has joined. Nothing to edit here.</p>`;
+  return null;
+}
+
+function IntroSlides({ intro, save }) {
   const order = introSlideOrder(intro);
-  const commit = (list) => save(list.map(({ key, enabled }) => ({ key, enabled })));
-  const move = (i, d) => { const l = order.slice(); [l[i], l[i + d]] = [l[i + d], l[i]]; commit(l); };
+  const [open, setOpen] = useState(() => new Set());
+  const [drag, setDrag] = useState(null); // { from, over } while a tile is dragged by its handle
+  const commit = (list) => save({ slides: list.map(({ key, enabled, custom, title, text }) => (custom ? { key, enabled, title, text } : { key, enabled })) });
+  const patch = (key, p) => commit(order.map((x) => (x.key === key ? { ...x, ...p } : x)));
+  const moveTo = (from, to) => { if (from === to) return; const l = order.slice(); const [m] = l.splice(from, 1); l.splice(to, 0, m); commit(l); };
+  const toggle = (key) => setOpen((o) => { const n = new Set(o); n.has(key) ? n.delete(key) : n.add(key); return n; });
+  function addSlide() {
+    const key = 'custom-' + uid();
+    commit([...order, { key, custom: true, enabled: true, title: 'New slide', text: '' }]);
+    setOpen((o) => new Set(o).add(key));
+  }
+  // Pointer-based drag (mouse, pen or touch): the drop slot follows the pointer
+  // across the tiles' midpoints; releasing moves the tile there.
+  function startDrag(e, from) {
+    e.preventDefault();
+    const list = e.currentTarget.closest('.slide-tiles');
+    const slotAt = (y) => {
+      const tiles = [...list.children];
+      const i = tiles.findIndex((t) => { const r = t.getBoundingClientRect(); return y < r.top + r.height / 2; });
+      return i === -1 ? tiles.length - 1 : i > from ? i - 1 : i;
+    };
+    let over = from;
+    setDrag({ from, over });
+    const move = (ev) => { const o = slotAt(ev.clientY); if (o !== over) { over = o; setDrag({ from, over }); } };
+    const up = () => {
+      removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up);
+      setDrag(null); moveTo(from, over);
+    };
+    addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up);
+  }
+  const hidden = order.filter((s) => !s.enabled).length;
   let n = 0;
   return html`
-    <div class="field"><span class="field-label">Slide order</span>
-      <ol class="agenda-edit">
-        ${order.map((s, i) => html`
-          <li key=${s.key} class=${cx('agenda-row', !s.enabled && 'off')}>
-            <input type="checkbox" checked=${s.enabled} onChange=${(e) => commit(order.map((x) => (x.key === s.key ? { ...x, enabled: e.target.checked } : x)))} aria-label=${'Show ' + s.title} />
-            <span class="step-num">${s.enabled ? ++n : '–'}</span>
-            <b class="grow">${s.title}</b>
-            <button class="btn btn-ghost btn-sm" disabled=${i === 0} aria-label=${'Move ' + s.title + ' up'} onClick=${() => move(i, -1)}>↑</button>
-            <button class="btn btn-ghost btn-sm" disabled=${i === order.length - 1} aria-label=${'Move ' + s.title + ' down'} onClick=${() => move(i, 1)}>↓</button>
-          </li>`)}
+    <div class="stack-sm">
+      <ol class="slide-tiles">
+        ${order.map((s, i) => { const isOpen = open.has(s.key); const name = s.title || 'Untitled slide'; return html`
+          <li key=${s.key} class=${cx('slide-tile', !s.enabled && 'off', drag && drag.over === i && drag.from !== i && (drag.from < i ? 'drop-after' : 'drop-before'), drag && drag.from === i && 'dragging')}>
+            <div class="slide-tile-head">
+              <span class="drag-handle" title="Drag to reorder" aria-hidden="true" onPointerDown=${(e) => startDrag(e, i)}>⋮⋮</span>
+              <span class="step-num">${s.enabled ? ++n : '–'}</span>
+              <button class="slide-tile-title" aria-expanded=${isOpen} onClick=${() => toggle(s.key)}>
+                <b>${name}</b>${s.custom && html` <span class="pill">Custom</span>`}${!s.enabled && html` <span class="pill pill-hidden">Hidden</span>`}
+              </button>
+              <button class=${cx('btn btn-sm', s.enabled ? 'btn-ghost' : '')} title=${s.enabled ? 'Hide this slide from the Introduction' : 'Show this slide again'}
+                aria-pressed=${!s.enabled} onClick=${() => patch(s.key, { enabled: !s.enabled })}>${s.enabled ? 'Hide' : 'Show'}</button>
+              <button class="btn btn-ghost btn-sm" disabled=${i === 0} aria-label=${'Move ' + name + ' up'} onClick=${() => moveTo(i, i - 1)}>↑</button>
+              <button class="btn btn-ghost btn-sm" disabled=${i === order.length - 1} aria-label=${'Move ' + name + ' down'} onClick=${() => moveTo(i, i + 1)}>↓</button>
+              <button class="icon-btn slide-tile-caret" aria-label=${(isOpen ? 'Collapse ' : 'Expand ') + name} onClick=${() => toggle(s.key)}>${isOpen ? '▴' : '▾'}</button>
+            </div>
+            ${isOpen && html`<div class="slide-tile-body">
+              ${s.custom ? html`
+                <${Field} label="Slide title"><${SaveOnBlur} value=${s.title} onSave=${(title) => patch(s.key, { title })} /><//>
+                <${Field} label="Text" hint="Line breaks are kept on the slide."><${SaveOnBlur} multiline rows="5" value=${s.text} onSave=${(text) => patch(s.key, { text })} /><//>
+                <div class="row end"><button class="btn btn-ghost btn-sm" onClick=${() => confirm(`Delete the slide "${name}"?`) && commit(order.filter((x) => x.key !== s.key))}>Delete slide</button></div>`
+              : html`<${SlideFields} s=${s} intro=${intro} save=${save} />`}
+            </div>`}
+          </li>`; })}
       </ol>
-      <span class="field-hint">Untick a slide to skip it.</span>
+      <div class="row between"><button class="btn" onClick=${addSlide}>+ Add slide</button>
+        <span class="muted small">${order.length - hidden} shown${hidden ? ` · ${hidden} hidden (skipped in the workshop)` : ''}</span></div>
     </div>`;
 }
 

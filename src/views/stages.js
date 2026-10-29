@@ -119,6 +119,7 @@ export function IntroStage({ w, data, isOrganizer }) {
         <div><b>${m.name}</b>${m.is_synthetic && html` <span class="pill pill-ai">AI</span>`}<span>${m.role === 'participant' ? DISCIPLINES[m.discipline] : ROLES[m.role]}${m.is_decider ? ' · Decider' : ''}${!m.joined_at ? ' · not here yet' : ''}</span></div>
       </div>`)}</div>`,
   };
+  const render = (s) => (s.custom ? html`<p class="islide-text islide-pre">${s.text}</p>` : body[s.key]());
   const slide = slides[page - 1];
 
   if (!total) return html`<${Empty} title="No introduction slides">${isOrganizer ? 'Turn some on in Setup → Introduction.' : ''}<//>`;
@@ -127,8 +128,8 @@ export function IntroStage({ w, data, isOrganizer }) {
       <div class="islide-box">
         <section class="islide" key=${slide.key}>
           <span class="islide-eyebrow">${w.title}</span>
-          <h2 class="islide-title">${slide.key === 'organizer' && hosts.length > 1 ? 'Your organizers' : slide.title}</h2>
-          <div class="islide-body">${body[slide.key]()}</div>
+          <h2 class="islide-title">${slide.key === 'organizer' && hosts.length > 1 ? 'Your organizers' : slide.title || 'Untitled slide'}</h2>
+          <div class="islide-body">${render(slide)}</div>
           <span class="islide-foot">${page} / ${total}</span>
         </section>
       </div>
