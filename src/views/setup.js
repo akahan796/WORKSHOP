@@ -180,9 +180,9 @@ function Skills({ w, save }) {
   };
   return html`
     <div class="stack">
-      <p class="muted">The skills participants run in their own AI tool (Claude, ChatGPT, Copilot…) to make their sketches. Each is a standard skill file (SKILL.md): it works pasted as a prompt or installed as a skill. During the step, participants copy the skill and a context prompt with the HMW and research. AI participants follow the same skill, so everyone's sketches look alike. Edit to fit your session.</p>
-      ${field('crazy8', 'skill_crazy8', 'Crazy 8s skill', 'Used in step: Crazy 8s. 8 rough wireframes, one idea each, with short captions.')}
-      ${field('solution', 'skill_solution', 'Solution sketch skill', 'Used in step: Solution Sketch. A title, summary and 3–6 storyboard frames in one consistent look.')}
+      <p class="muted">The skills participants use in their own AI tool (Claude, ChatGPT, Copilot…) to sketch. The ideas come from the participant: they describe one idea or frame at a time, and the skill turns each into a sketch in the same format, so everyone's sketches look alike. It never comes up with ideas for them. Each is a standard skill file (SKILL.md) that works pasted as a prompt or installed as a skill. During the step, participants copy the skill and a context prompt with the HMW and research. AI participants use the same skill for the format, with their own ideas. Edit to fit your session.</p>
+      ${field('crazy8', 'skill_crazy8', 'Crazy 8s skill', 'Used in step: Crazy 8s. The participant describes each of their 8 ideas; the skill draws each as a rough wireframe with a short caption.')}
+      ${field('solution', 'skill_solution', 'Solution sketch skill', 'Used in step: Solution Sketch. The participant gives the title and describes each frame; the skill tidies the words and draws each frame in one consistent look.')}
     </div>`;
 }
 

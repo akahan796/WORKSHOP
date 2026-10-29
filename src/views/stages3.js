@@ -147,7 +147,7 @@ export function Crazy8Stage({ w, data, me, isOrganizer }) {
     <div class="stack">
       <${ChosenHmw} w=${w} data=${data} />
       ${me && !facilitates(me) ? html`
-        <${SkillBox} title="Crazy 8s skill: run it in your AI tool with the prompt, then add each sketch below" text=${skillFor(w, 'crazy8')} prompt=${prompt} />
+        <${SkillBox} title="Your ideas, sketched one at a time: paste the skill and prompt into your AI tool, describe idea 1, add the sketch to slot 1, then the next" text=${skillFor(w, 'crazy8')} prompt=${prompt} />
         <div class="row between"><h3>Your Crazy 8s <span class="muted small">${cells.filter((c) => c.file_path).length}/8</span></h3><span class="muted small">Only you can see your sheet until the share-out.</span></div>
         <div class="crazy8-grid">
           ${cells.map((c, i) => html`<${CellEditor} key=${c.id} cell=${c} url=${urls[c.file_path]} label=${String(i + 1)}
@@ -268,7 +268,7 @@ export function SolutionStage({ w, data, me, isOrganizer }) {
     <div class="stack">
       <${ChosenHmw} w=${w} data=${data} />
       ${me && !facilitates(me) ? html`
-        <${SkillBox} title="Solution sketch skill: run it in your AI tool with the prompt for a consistent look" text=${skillFor(w, 'solution')}
+        <${SkillBox} title="Your solution, one frame at a time: paste the skill and prompt into your AI tool, give your title, then describe and add each frame" text=${skillFor(w, 'solution')}
           prompt=${sketchPrompt('solution', { w, hmw: data.stickies.find((x) => x.id === w.step_state?.hmw_final?.sticky_id)?.text, stickies: data.stickies,
             ideas: ideas.filter((r) => r.item.caption).map((r) => ({ caption: r.item.caption, author: authors[r.item.member_id]?.name, votes: r.score })),
             mine: (data.sheets.find((x) => x.kind === 'crazy8' && x.member_id === me.id)?.cells || []).map((c) => c.caption).filter(Boolean) })} />

@@ -202,7 +202,7 @@ const SVG_RULES = 'Each sketch is a rough, low-fidelity UI wireframe drawn as on
 // rules stay in charge of the file format.
 const skillRules = (skill: unknown) => {
   const s = String(skill || "").trim().slice(0, 12000);
-  return s ? `\n\nFollow the workshop's sketching skill below for the kind of ideas, the captions and the look. The number of sketches or frames asked for above, and the drawing rules (you return SVG, not image files), take precedence over it.\n<skill>\n${s}\n</skill>` : "";
+  return s ? `\n\nHuman participants use the workshop's sketching skill below in their own AI tool: they come up with each idea themselves and the skill only formats the sketch. You are a participant, so the ideas are yours to come up with; use the skill for the captions and the look of every sketch, so yours match everyone else's. Ignore its turn-by-turn steps (asking for one idea at a time). The number of sketches or frames asked for above, and the drawing rules (you return SVG, not image files), take precedence over it.\n<skill>\n${s}\n</skill>` : "";
 };
 
 const SYSTEM = "You support a OneStream UX design-thinking workshop. Be concrete, specific to the product and users described, and write like a thoughtful practitioner, not a consultant.";
