@@ -53,20 +53,21 @@ export function CoverStage({ w, data }) {
   const people = data.members.filter((m) => !facilitates(m));
   const here = people.filter((m) => m.joined_at);
   return html`
-    <div class="cover">
-      <div class="cover-card">
-        <span class="eyebrow">${[w.project || 'Design thinking workshop', w.starts_at && fmtDate(w.starts_at)].filter(Boolean).join(' · ')}</span>
-        <h1 class="cover-title">${w.title}</h1>
-        ${w.description && html`<p class="cover-lead">${w.description}</p>`}
-        ${hosts.length > 0 && html`<p class="cover-host">Facilitated by ${hosts.map((m) => m.name).join(' & ')}</p>`}
+    <div class="intro-present">
+      <div class="islide-box">
+        <section class="islide islide-cover">
+          <span class="islide-eyebrow">${[w.project || 'Design thinking workshop', w.starts_at && fmtDate(w.starts_at)].filter(Boolean).join(' · ')}</span>
+          <h1 class="cover-title">${w.title}</h1>
+          ${w.description && html`<p class="cover-lead">${w.description}</p>`}
+          ${hosts.length > 0 && html`<p class="cover-host">Facilitated by ${hosts.map((m) => m.name).join(' & ')}</p>`}
+        </section>
       </div>
-      <div class="cover-wait">
-        <div class="cover-wait-head"><span class="cover-pulse" aria-hidden="true"></span><b>${w.status === 'draft' ? 'Waiting for everyone to join' : 'Welcome'}</b>
-          <span class="muted">${here.length} of ${people.length} here</span></div>
-        <div class="cover-people">
-          ${people.map((m) => html`<span key=${m.id} class=${cx('cover-person', !m.joined_at && 'absent')} title=${m.name + (m.joined_at ? '' : ' (not here yet)')}>
-            <${Avatar} name=${m.name} color=${m.color} size=${36} /><span class="small">${m.name.split(' ')[0]}</span></span>`)}
-        </div>
+      <div class="slide-bar cover-wait">
+        <span class="cover-pulse" aria-hidden="true"></span>
+        <b class="small">${w.status === 'draft' ? 'Waiting for everyone to join' : 'Welcome'}</b>
+        <span class="muted small">${here.length} of ${people.length} here</span>
+        <span class="cover-people">${people.map((m) => html`<span key=${m.id} class=${cx('cover-person', !m.joined_at && 'absent')} title=${m.name + (m.joined_at ? '' : ' (not here yet)')}>
+          <${Avatar} name=${m.name} color=${m.color} size=${26} /></span>`)}</span>
       </div>
     </div>`;
 }
