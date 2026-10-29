@@ -1,6 +1,7 @@
 // Phase 3 stages: Crazy 8s, sharing them (per-sketch votes), solution sketches,
 // review, and voting on a direction with the Decider.
 import { html, useState, useEffect, useMemo, cx, uid, DECIDER_PURPLE, facilitates } from '../lib.js';
+import { skillFor, sketchPrompt } from '../skills.js';
 import { backend } from '../backend/index.js';
 import { Avatar, Empty, AiButton, Modal, useCopy } from './ui.js';
 import { tallyItems, DECIDER_WEIGHT, canMemberVote, synthCrazy8, synthSketchVotes, synthSolutions, synthComments, aiDecideSolution } from '../ai.js';
@@ -135,7 +136,7 @@ export function Crazy8Stage({ w, data, me, isOrganizer }) {
   const urls = useSketchUrls(cells.map((c) => c.file_path));
   const sketchers = data.members.filter((m) => !facilitates(m));
   const hmw = data.stickies.find((x) => x.id === (w.step_state || {}).hmw_final?.sticky_id);
-  const prompt = `Crazy 8s: sketch 8 different ideas, one per panel, for this problem.\n${hmw ? hmw.text : ''}\nWorkshop: ${w.title} (${w.project}).`;
+  const prompt = sketchPrompt('crazy8', { w, hmw: hmw?.text, stickies: data.stickies });
 
   const save = (i, patch) => {
     const next = cells.map((c, j) => (j === i ? { ...c, ...patch } : c));
@@ -146,7 +147,7 @@ export function Crazy8Stage({ w, data, me, isOrganizer }) {
     <div class="stack">
       <${ChosenHmw} w=${w} data=${data} />
       ${me && !facilitates(me) ? html`
-        <${SkillBox} title="Crazy 8s skill: run it in your AI tool, then add each sketch below" text=${w.intro?.skill_crazy8} prompt=${prompt} />
+        <${SkillBox} title="Crazy 8s skill: run it in your AI tool with the prompt, then add each sketch below" text=${skillFor(w, 'crazy8')} prompt=${prompt} />
         <div class="row between"><h3>Your Crazy 8s <span class="muted small">${cells.filter((c) => c.file_path).length}/8</span></h3><span class="muted small">Only you can see your sheet until the share-out.</span></div>
         <div class="crazy8-grid">
           ${cells.map((c, i) => html`<${CellEditor} key=${c.id} cell=${c} url=${urls[c.file_path]} label=${String(i + 1)}
@@ -267,8 +268,10 @@ export function SolutionStage({ w, data, me, isOrganizer }) {
     <div class="stack">
       <${ChosenHmw} w=${w} data=${data} />
       ${me && !facilitates(me) ? html`
-        <${SkillBox} title="Solution sketch skill: use it in your AI tool for a consistent look" text=${w.intro?.skill_solution}
-          prompt=${`Solution sketch for: ${data.stickies.find((x) => x.id === w.step_state?.hmw_final?.sticky_id)?.text || w.title}\nShow a clear title and 3+ frames of a flow, mixing pictures and words.`} />
+        <${SkillBox} title="Solution sketch skill: run it in your AI tool with the prompt for a consistent look" text=${skillFor(w, 'solution')}
+          prompt=${sketchPrompt('solution', { w, hmw: data.stickies.find((x) => x.id === w.step_state?.hmw_final?.sticky_id)?.text, stickies: data.stickies,
+            ideas: ideas.filter((r) => r.item.caption).map((r) => ({ caption: r.item.caption, author: authors[r.item.member_id]?.name, votes: r.score })),
+            mine: (data.sheets.find((x) => x.kind === 'crazy8' && x.member_id === me.id)?.cells || []).map((c) => c.caption).filter(Boolean) })} />
         <section class="card stack">
           <div class="form-grid">
             <label class="field"><span class="field-label">Title</span><input value=${title} placeholder="A clear, memorable name" onInput=${(e) => setTitle(e.target.value)} onBlur=${() => title !== (mine?.title || '') && save({ title })} /></label>

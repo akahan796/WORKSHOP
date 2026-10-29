@@ -6,6 +6,7 @@ import { useWorkshop } from '../useWorkshop.js';
 import { Field, SaveOnBlur, Avatar, useCopy, Empty, Modal } from './ui.js';
 import { generateSynthetic, isSimulated } from '../ai.js';
 import { ResearchManager } from './research.js';
+import { DEFAULT_SKILLS, skillFor, isDefaultSkill, downloadSkill } from '../skills.js';
 
 const TABS = [['details', 'Details'], ['intro', 'Introduction'], ['agenda', 'Agenda'], ['people', 'People & invites'], ['research', 'Research'], ['skills', 'Skills']];
 
@@ -165,14 +166,23 @@ function IntroSlides({ intro, save }) {
 
 function Skills({ w, save }) {
   const intro = { ...defaultIntro(), ...w.intro };
-  const set = (k) => (v) => save({ intro: { ...intro, [k]: v } });
+  const field = (kind, key, label, hint) => {
+    const custom = !isDefaultSkill(w, kind);
+    return html`
+      <div class="field"><div class="row between"><span class="field-label">${label} ${custom ? html`<span class="pill">Edited</span>` : html`<span class="pill pill-live">Default</span>`}</span>
+        <div class="row">
+          <button class="btn btn-sm btn-ghost" onClick=${() => downloadSkill(w, kind)}>Download .md</button>
+          ${custom && html`<button class="btn btn-sm btn-ghost" onClick=${() => confirm('Replace your edits with the default skill?') && save({ intro: { ...intro, [key]: '' } })}>Reset to default</button>`}
+        </div></div>
+        <${SaveOnBlur} multiline rows="14" class="mono" value=${skillFor(w, kind)} onSave=${(v) => save({ intro: { ...intro, [key]: v.trim() === DEFAULT_SKILLS[kind].trim() ? '' : v } })} />
+        <span class="field-hint">${hint}</span>
+      </div>`;
+  };
   return html`
     <div class="stack">
-      <p class="muted">Paste the AI skill files (Markdown) you share with participants before the workshop, or a link to them. During Crazy 8s and Solution Sketch, everyone can view and copy them next to their sketch slots.</p>
-      <${Field} label="Crazy 8s skill" hint="Used in step: Crazy 8s. Participants run it in their own AI tool and upload the 8 sketches.">
-        <${SaveOnBlur} multiline rows="8" value=${intro.skill_crazy8 || ''} onSave=${set('skill_crazy8')} placeholder="# Crazy 8s skill…" /><//>
-      <${Field} label="Solution sketch skill" hint="Used in step: Solution Sketch, for a uniform, consistent look.">
-        <${SaveOnBlur} multiline rows="8" value=${intro.skill_solution || ''} onSave=${set('skill_solution')} placeholder="# Solution sketch skill…" /><//>
+      <p class="muted">The skills participants run in their own AI tool (Claude, ChatGPT, Copilot…) to make their sketches. Each is a standard skill file (SKILL.md): it works pasted as a prompt or installed as a skill. During the step, participants copy the skill and a context prompt with the HMW and research. AI participants follow the same skill, so everyone's sketches look alike. Edit to fit your session.</p>
+      ${field('crazy8', 'skill_crazy8', 'Crazy 8s skill', 'Used in step: Crazy 8s. 8 rough wireframes, one idea each, with short captions.')}
+      ${field('solution', 'skill_solution', 'Solution sketch skill', 'Used in step: Solution Sketch. A title, summary and 3–6 storyboard frames in one consistent look.')}
     </div>`;
 }
 

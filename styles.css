@@ -392,3 +392,4 @@ textarea { resize: vertical; }
 .rail-mini-steps .step-num.on { background: var(--brand); color: #fff; }
 .rail-mini-steps .step-num.done { background: var(--ok-soft); color: var(--ok); }
 .rail-mini-people { margin-top: 4px; font-weight: 700; }
+textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; }

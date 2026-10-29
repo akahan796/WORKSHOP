@@ -195,7 +195,15 @@ const flowText = (flow: any) => flow ? `User flow "${flow.title || ""}":\n${(flo
 
 const PROTOTYPE_RULES = "Build a clickable, high-fidelity prototype of a OneStream enterprise web app as ONE self-contained HTML file: inline CSS and vanilla JavaScript only, no external scripts, fonts, images or network requests. Use Arial, brand blue #0A5DFF, neutral greys, 8px radius cards, and realistic sample data for the product described. Show each screen of the flow, wired with working buttons and links that move between screens (show one screen at a time), plus a small fixed 'Screens' menu to jump to any screen. Keep it compact: under about 450 lines (roughly 25 KB) in total.";
 
-const SVG_RULES = 'Each sketch is a rough, low-fidelity UI wireframe drawn as one self-contained SVG: viewBox="0 0 320 240", white background rect, black and grey strokes, boxes for UI regions, and a few short text labels (font-family Arial, font-size 10–14). Keep each under about 30 elements. No images, scripts, links, or foreignObject.';
+const SVG_RULES = 'Each sketch is a rough, low-fidelity UI wireframe drawn as one self-contained SVG: viewBox="0 0 320 240", white background rect, black and grey strokes (plus one accent color only if the sketching skill asks for it), boxes for UI regions, and a few short text labels (font-family Arial, font-size 10–14). Keep each under about 30 elements. No images, scripts, links, or foreignObject.';
+
+// The workshop's sketching skill (the same one participants run in their own AI
+// tool), so AI participants' sketches follow the same rules and look. The SVG
+// rules stay in charge of the file format.
+const skillRules = (skill: unknown) => {
+  const s = String(skill || "").trim().slice(0, 12000);
+  return s ? `\n\nFollow the workshop's sketching skill below for the kind of ideas, the captions and the look. The number of sketches or frames asked for above, and the drawing rules (you return SVG, not image files), take precedence over it.\n<skill>\n${s}\n</skill>` : "";
+};
 
 const SYSTEM = "You support a OneStream UX design-thinking workshop. Be concrete, specific to the product and users described, and write like a thoughtful practitioner, not a consultant.";
 
@@ -424,7 +432,7 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
       const have = done.length ? `\nAlready sketched: ${done.join("; ")}. Make ${need} more that are different from these.` : "";
       const out = await callTool(
         SYSTEM + " You play one synthetic participant doing Crazy 8s: eight quick, genuinely different ideas in eight minutes.",
-        [{ type: "text", text: `${ctx.text}\n\nYou are:\n${personaList(members)}\n\nSketch exactly ${need} different ideas that answer the chosen HMW, from your perspective. Go wide: vary the approach, not just the layout. ${SVG_RULES} Give each a caption under 12 words.${angle}${have}` }],
+        [{ type: "text", text: `${ctx.text}\n\nYou are:\n${personaList(members)}\n\nSketch exactly ${need} different ideas that answer the chosen HMW, from your perspective. Go wide: vary the approach, not just the layout. ${SVG_RULES} Give each a caption under 12 words.${angle}${have}${skillRules(body.skill)}` }],
         tool, 32000,
       );
       for (const c of out.sketches || []) {
@@ -442,7 +450,7 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
     const ctx = await workshopContext(sb, ws, false);
     const out = await callTool(
       SYSTEM + " You play one synthetic participant turning the strongest Crazy 8s idea into a detailed solution sketch.",
-      [{ type: "text", text: `${ctx.text}\n\nYou are:\n${personaList(members)}\n\nCrazy 8s ideas from the group (with votes):\n${ideas.map((i) => `- id ${i.id} · ${i.votes || 0} votes · by ${i.author}: ${i.caption}`).join("\n") || "(none)"}\n\nPick the idea you think is strongest (yours or anyone's; riffing on someone else's is encouraged), or "none". Develop it into a solution sketch: a clear title, a 2–3 sentence summary, and 3–4 frames that show a flow or interaction, each a picture plus a caption that explains what happens. ${SVG_RULES}` }],
+      [{ type: "text", text: `${ctx.text}\n\nYou are:\n${personaList(members)}\n\nCrazy 8s ideas from the group (with votes):\n${ideas.map((i) => `- id ${i.id} · ${i.votes || 0} votes · by ${i.author}: ${i.caption}`).join("\n") || "(none)"}\n\nPick the idea you think is strongest (yours or anyone's; riffing on someone else's is encouraged), or "none". Develop it into a solution sketch: a clear title, a 2–3 sentence summary, and 3–4 frames that show a flow or interaction, each a picture plus a caption that explains what happens. ${SVG_RULES}${skillRules(body.skill)}` }],
       {
         name: "create_solution",
         description: "Create the solution sketch.",
@@ -463,7 +471,7 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
       const need = 3 - frames.length;
       const more = await callTool(
         SYSTEM + " You play one synthetic participant finishing their solution sketch.",
-        [{ type: "text", text: `${ctx.text}\n\nYou are:\n${personaList(members)}\n\nYour solution sketch "${out.title}": ${out.summary}\nFrames so far:\n${frames.map((f: any, i: number) => `${i + 1}. ${f.caption}`).join("\n") || "(none)"}\n\nAdd ${need} more frame(s) that continue this flow, each a picture plus a caption. ${SVG_RULES}` }],
+        [{ type: "text", text: `${ctx.text}\n\nYou are:\n${personaList(members)}\n\nYour solution sketch "${out.title}": ${out.summary}\nFrames so far:\n${frames.map((f: any, i: number) => `${i + 1}. ${f.caption}`).join("\n") || "(none)"}\n\nAdd ${need} more frame(s) that continue this flow, each a picture plus a caption. ${SVG_RULES}${skillRules(body.skill)}` }],
         {
           name: "add_frames",
           description: "Add the missing frames.",

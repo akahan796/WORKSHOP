@@ -4,6 +4,7 @@
 import { backend } from './backend/index.js';
 import { nextColor, hmwText, uid, facilitates } from './lib.js';
 import { demoAi } from './backend/demo-ai.js';
+import { skillFor } from './skills.js';
 
 // Simulated AI: the built-in stand-in, no API call. Used in demo mode and for any
 // workshop whose AI mode is set to "simulated" (workshop data still lives in Supabase).
@@ -155,7 +156,7 @@ async function perSynth(members, fn, onProgress) {
 // (Parallel batches were faster but duplicated ideas across batches.) The edge
 // function tops up on its own if fewer than 8 usable sketches come back.
 async function crazy8Sketches(w, memberId) {
-  const { cells } = await runAi(w, 'synth_crazy8', { member_id: memberId });
+  const { cells } = await runAi(w, 'synth_crazy8', { member_id: memberId, skill: skillFor(w, 'crazy8') });
   return cells.filter((c) => c.svg).slice(0, 8);
 }
 
@@ -169,7 +170,7 @@ export function synthCrazy8(w, members, onProgress) {
 // ideas: [{ id, caption, author, votes }] (Crazy 8s cells)
 export function synthSolutions(w, members, ideas, onProgress) {
   return perSynth(members, async (m) => {
-    const r = await runAi(w, 'synth_solution', { member_id: m.id, ideas });
+    const r = await runAi(w, 'synth_solution', { member_id: m.id, ideas, skill: skillFor(w, 'solution') });
     await backend.saveSheet(w.id, m.id, 'solution', { title: r.title, summary: r.summary, based_on: r.based_on, cells: await saveCells(w, m.id, r.frames), ready: true });
   }, onProgress);
 }
