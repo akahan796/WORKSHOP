@@ -79,7 +79,7 @@ function Intro({ w, save }) {
   return html`
     <div class="stack">
       <p class="muted">This is what everyone sees in step 1. It's prefilled; edit it to fit your session.</p>
-      <${Field} label="About me (organizer intro)" hint="Who you are and your role in this workshop."><${SaveOnBlur} multiline value=${intro.welcome} onSave=${set('welcome')} /><//>
+      <${Field} label="About me (organizer intro)" hint="Who you are and your role in this workshop. If you assign a facilitator in People & invites, the intro shows them as the organizer, with your name in this text replaced by theirs."><${SaveOnBlur} multiline value=${intro.welcome} onSave=${set('welcome')} /><//>
       <${Field} label="Project background" hint="The problem space and why we're here."><${SaveOnBlur} multiline rows="4" value=${intro.background} onSave=${set('background')} /><//>
       <${Field} label="Workshop overview"><${SaveOnBlur} multiline value=${intro.overview} onSave=${set('overview')} /><//>
       <${Field} label="Ground rules" hint="One rule per line.">

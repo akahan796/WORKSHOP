@@ -43,7 +43,12 @@ function useAuthors(members) {
 // ── Step 1: Introductions ──
 export function IntroStage({ w, data }) {
   const intro = { ...defaultIntro(), ...w.intro };
-  const organizer = data.members.find((m) => m.role === 'organizer');
+  // The organizer shown to everyone: the facilitator(s) the owner assigned, or else the owner.
+  const owner = data.members.find((m) => m.role === 'organizer');
+  const assigned = data.members.filter((m) => m.role === 'facilitator');
+  const hosts = assigned.length ? assigned : owner ? [owner] : [];
+  // A welcome written in the owner's name ("I'm Alex Kahan…") is shown in the facilitator's.
+  const welcome = assigned.length && owner?.name ? (intro.welcome || '').split(owner.name).join(assigned[0].name) : intro.welcome;
   const steps = activeSteps(w);
   const people = data.members.filter((m) => !facilitates(m));
   return html`
@@ -55,9 +60,9 @@ export function IntroStage({ w, data }) {
       </section>
       <div class="intro-grid">
         <section class="card">
-          <h3>Your organizer</h3>
-          <div class="row"><${Avatar} name=${organizer?.name} size=${44} /><div><b>${organizer?.name}</b><div class="muted small">Organizer & facilitator</div></div></div>
-          ${intro.welcome && html`<p>${intro.welcome}</p>`}
+          <h3>Your organizer${hosts.length > 1 ? 's' : ''}</h3>
+          <div class="stack-sm">${hosts.map((m) => html`<div key=${m.id} class="row"><${Avatar} name=${m.name} color=${m.color} size=${44} /><div><b>${m.name}</b><div class="muted small">Organizer & facilitator</div></div></div>`)}</div>
+          ${welcome && html`<p>${welcome}</p>`}
         </section>
         <section class="card">
           <h3>About the project</h3>
