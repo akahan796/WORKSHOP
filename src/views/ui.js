@@ -2,7 +2,8 @@
 import { html, useState, useEffect, initials, cx, navigate } from '../lib.js';
 import { backend } from '../backend/index.js';
 
-export function Header({ user, children }) {
+// `menu`: extra items for the user dropdown, [{ label, onClick }] (falsy entries skipped).
+export function Header({ user, children, menu = [] }) {
   return html`
     <header class="app-header">
       <a class="brand" href="#/" onClick=${(e) => { if (!user || !user.isStaff) e.preventDefault(); }}>
@@ -11,13 +12,34 @@ export function Header({ user, children }) {
       </a>
       ${backend.mode === 'demo' && html`<span class="pill pill-demo" title="No Supabase configured: data is stored in this browser only">Demo mode</span>`}
       <div class="header-mid">${children}</div>
-      ${user && html`
-        <div class="header-user">
-          <${Avatar} name=${user.name || user.email || 'Guest'} />
-          <span class="header-user-name">${user.name || user.email || 'Guest'}</span>
-          <button class="btn btn-ghost btn-sm" onClick=${async () => { await backend.signOut(); navigate('/login'); }}>Sign out</button>
-        </div>`}
+      ${user && html`<${UserMenu} user=${user} items=${menu.filter(Boolean)} />`}
     </header>`;
+}
+
+function UserMenu({ user, items }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => { if (e.type === 'mousedown' ? !e.target.closest('.header-user') : e.key === 'Escape') setOpen(false); };
+    addEventListener('mousedown', close); addEventListener('keydown', close);
+    return () => { removeEventListener('mousedown', close); removeEventListener('keydown', close); };
+  }, [open]);
+  const name = user.name || user.email || 'Guest';
+  const pick = (fn) => () => { setOpen(false); fn(); };
+  return html`
+    <div class="header-user">
+      <button class="user-trigger" aria-haspopup="menu" aria-expanded=${open} onClick=${() => setOpen(!open)}>
+        <${Avatar} name=${name} />
+        <span class="header-user-name">${name}</span>
+        <span class="caret" aria-hidden="true">▾</span>
+      </button>
+      ${open && html`
+        <div class="user-menu" role="menu">
+          ${items.map((it) => html`<button key=${it.label} role="menuitem" class="user-menu-item" onClick=${pick(it.onClick)}>${it.label}</button>`)}
+          ${items.length > 0 && html`<div class="user-menu-sep" />`}
+          <button role="menuitem" class="user-menu-item" onClick=${pick(async () => { await backend.signOut(); navigate('/login'); })}>Sign out</button>
+        </div>`}
+    </div>`;
 }
 
 export function Avatar({ name, color, size = 28, title }) {

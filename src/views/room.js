@@ -79,7 +79,11 @@ export function RoomView({ wsId, user }) {
 
   return html`
     <div class="room">
-      <${Header} user=${user}>
+      <${Header} user=${user} menu=${[
+        isOrganizer && { label: 'Workshop setup', onClick: () => navigate(`/w/${w.id}/setup`) },
+        (isOrganizer || isResearcher) && { label: 'Manage research decks', onClick: () => setShowResearch(true) },
+        { label: 'Workshop summary', onClick: () => navigate(`/w/${w.id}/summary`) },
+      ]}>
         <div class="room-title">
           <b>${w.title}</b>
           <span class="muted">Step ${idx + 1} of ${steps.length} · ${step.title}</span>
@@ -108,9 +112,6 @@ export function RoomView({ wsId, user }) {
                 <span class="muted small">${m.is_decider ? 'Decider' : m.role === 'participant' ? (DISCIPLINES[m.discipline] || '').replace('Product ', '') : ROLES[m.role]}</span>
               </li>`)}
           </ul>
-          ${(isOrganizer || isResearcher) && html`<button class="btn btn-sm" onClick=${() => setShowResearch(true)}>Manage research decks</button>`}
-          <a class="btn btn-sm btn-ghost" href=${`#/w/${w.id}/summary`}>Workshop summary</a>
-          ${isOrganizer && html`<button class="btn btn-sm btn-ghost" onClick=${() => navigate(`/w/${w.id}/setup`)}>Workshop setup</button>`}
         </aside>
         <main class="stage"><${StageToShow} ...${props} /></main>
       </div>
