@@ -88,11 +88,14 @@ export function IntroStage({ w, data, isOrganizer }) {
   const shared = Math.min(Math.max(1, (w.step_state || {}).intro_page || 1), Math.max(1, total));
   const [pending, setPending] = useState(null);
   const [local, setLocal] = useState(null);
-  useEffect(() => { if (pending === shared) setPending(null); }, [shared]);
+  // Participants can look back at slides already shown, never ahead; when the
+  // presenter moves on, everyone snaps back to the presenter's slide.
+  useEffect(() => { if (pending === shared) setPending(null); setLocal(null); }, [shared]);
   const page = Math.min(local || pending || shared, Math.max(1, total));
   const go = (p) => {
     p = Math.min(Math.max(1, p), total);
-    if (isOrganizer) { setPending(p); backend.setStepState(w.id, { intro_page: p }); } else setLocal(p);
+    if (isOrganizer) { setPending(p); backend.setStepState(w.id, { intro_page: p }); }
+    else { p = Math.min(p, shared); setLocal(p === shared ? null : p); }
   };
   useEffect(() => {
     const on = (e) => {
@@ -137,9 +140,9 @@ export function IntroStage({ w, data, isOrganizer }) {
       <div class="slide-bar">
         <button class="btn btn-sm" disabled=${page <= 1} onClick=${() => go(page - 1)}>←</button>
         <span class="small">Slide ${page} / ${total}</span>
-        <button class="btn btn-sm" disabled=${page >= total} onClick=${() => go(page + 1)}>→</button>
+        <button class="btn btn-sm" disabled=${page >= (isOrganizer ? total : shared)} title=${!isOrganizer && page >= shared ? 'You can look back, but not ahead of the presenter' : ''} onClick=${() => go(page + 1)}>→</button>
         ${isOrganizer ? html`<span class="pill pill-live">You're presenting</span>`
-          : local ? html`<button class="btn btn-sm btn-primary" onClick=${() => setLocal(null)}>Back to presenter</button>`
+          : local ? html`<span class="small"><b>You're viewing slide ${page}</b> · presenter is on ${shared}</span><button class="btn btn-sm btn-primary" onClick=${() => setLocal(null)}>Back to presenter</button>`
           : html`<span class="muted small">Following the presenter</span>`}
       </div>
     </div>`;
@@ -164,6 +167,9 @@ export function ResearchStage({ w, data, me, isOrganizer, isResearcher }) {
     if (pending && sharedDoc && pending.docId === sharedDoc.id && pending.page === sharedPage) setPending(null);
   }, [sharedDoc && sharedDoc.id, sharedPage]);
 
+  // Viewers can look back at pages of the presenter's deck already shown, never
+  // ahead; when the presenter moves on, they snap back to the presenter.
+  useEffect(() => { setLocal(null); }, [sharedDoc && sharedDoc.id, sharedPage]);
   const view0 = local || pending;
   const doc = view0 ? docs.find((d) => d.id === view0.docId) || sharedDoc : sharedDoc;
   const page = view0 ? view0.page : sharedPage;
@@ -178,7 +184,7 @@ export function ResearchStage({ w, data, me, isOrganizer, isResearcher }) {
   const go = (p, d = doc) => {
     p = Math.min(Math.max(1, p), d.id === doc.id && pages ? pages : 1e4);
     if (canPresent) { setPending({ docId: d.id, page: p }); backend.setStepState(w.id, { research_doc: d.id, research_page: p }); }
-    else setLocal({ docId: d.id, page: p });
+    else { p = Math.min(p, sharedPage); setLocal(p === sharedPage ? null : { docId: sharedDoc.id, page: p }); }
   };
 
   useEffect(() => {
@@ -209,13 +215,13 @@ export function ResearchStage({ w, data, me, isOrganizer, isResearcher }) {
           <div class="slides">
             <${PdfSlide} url=${url} page=${page} onPageCount=${setPages} />
             <div class="slide-bar">
-              ${docs.length > 1 && html`<select value=${doc.id} onChange=${(e) => go(1, docs.find((d) => d.id === e.target.value))}>
+              ${docs.length > 1 && canPresent && html`<select value=${doc.id} onChange=${(e) => go(1, docs.find((d) => d.id === e.target.value))}>
                 ${docs.map((d) => html`<option key=${d.id} value=${d.id}>${d.title}</option>`)}</select>`}
               <button class="btn btn-sm" disabled=${page <= 1} onClick=${() => go(page - 1)}>←</button>
               <span class="small">Slide ${page}${pages ? ' / ' + pages : ''}</span>
-              <button class="btn btn-sm" disabled=${!!pages && page >= pages} onClick=${() => go(page + 1)}>→</button>
+              <button class="btn btn-sm" disabled=${canPresent ? !!pages && page >= pages : page >= sharedPage} title=${!canPresent && page >= sharedPage ? 'You can look back, but not ahead of the presenter' : ''} onClick=${() => go(page + 1)}>→</button>
               ${canPresent ? html`<span class="pill pill-live">You're presenting</span>`
-                : local ? html`<button class="btn btn-sm btn-primary" onClick=${() => setLocal(null)}>Back to presenter</button>`
+                : local ? html`<span class="small"><b>You're viewing slide ${page}</b> · presenter is on ${sharedPage}</span><button class="btn btn-sm btn-primary" onClick=${() => setLocal(null)}>Back to presenter</button>`
                 : html`<span class="muted small">Following the presenter</span>`}
             </div>
           </div>`

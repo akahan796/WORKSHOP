@@ -105,7 +105,7 @@ textarea { resize: vertical; }
 
 /* Room */
 .room { height: 100vh; display: flex; flex-direction: column; }
-.room-title { display: flex; flex-direction: column; min-width: 0; } .room-title b, .room-title span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-title { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1 1 auto; } .room-title b, .room-title span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .room-title b { flex: 0 1 auto; min-width: 140px; } .room-title span { flex: 0 1 auto; min-width: 0; } .room-title span::before { content: '·'; margin-right: 8px; color: var(--muted); }
 .banner { background: var(--warn-soft); padding: 8px 20px; font-weight: 700; font-size: 13px; }
 .room-body { flex: 1; display: flex; min-height: 0; }
 .rail { width: 260px; flex: none; background: #fff; border-right: 1px solid var(--line); padding: 8px 12px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
