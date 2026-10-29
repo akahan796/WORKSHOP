@@ -30,6 +30,15 @@ export function PdfSlide({ url, page, onPageCount }) {
     return () => ro.disconnect();
   }, []);
 
+  // The page count doesn't depend on the layout, so report it as soon as the file
+  // opens (rendering waits for the box to be measured, which can be late).
+  useEffect(() => {
+    if (!url) return;
+    let alive = true;
+    openDoc(url).then((doc) => alive && onPageCount && onPageCount(doc.numPages)).catch(() => {});
+    return () => { alive = false; };
+  }, [url]);
+
   useEffect(() => {
     if (!url || !size.w) return;
     let task, cancelled = false;
@@ -37,7 +46,6 @@ export function PdfSlide({ url, page, onPageCount }) {
       try {
         const doc = await openDoc(url);
         if (cancelled) return;
-        onPageCount && onPageCount(doc.numPages);
         const p = await doc.getPage(Math.min(Math.max(1, page), doc.numPages));
         const base = p.getViewport({ scale: 1 });
         const scale = Math.min(size.w / base.width, size.h / base.height);
