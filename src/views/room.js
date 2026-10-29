@@ -6,7 +6,7 @@ import { activeSteps } from '../steps.js';
 import { useWorkshop } from '../useWorkshop.js';
 import { Header, Avatar, Empty, Modal } from './ui.js';
 import { ResearchManager } from './research.js';
-import { IntroStage, ResearchStage, HmwStage, ComingSoonStage } from './stages.js';
+import { CoverStage, IntroStage, ResearchStage, HmwStage, ComingSoonStage } from './stages.js';
 import { GridStage, VoteHmwStage } from './stages2.js';
 import { Crazy8Stage, Share8Stage, SolutionStage, ReviewStage, VoteSolutionStage } from './stages3.js';
 import { FlowStage, PrototypeStage, DesignReviewStage, ReleasedStage } from './stages4.js';
@@ -57,13 +57,18 @@ export function RoomView({ wsId, user }) {
   if (!w || (!me && !isOrganizer)) return html`<${Header} user=${user} /><main class="page"><${Empty} title="You don't have access to this workshop">Use the invite link from your email.<//></main>`;
 
   const steps = activeSteps(w);
-  const idx = Math.max(0, steps.findIndex((s) => s.key === w.current_step));
+  // The cover comes first: always while the workshop is in draft, and whenever the
+  // facilitator goes back to it. It isn't an agenda step.
+  const onCover = w.status === 'draft' || w.current_step === 'cover';
+  const idx = onCover ? -1 : Math.max(0, steps.findIndex((s) => s.key === w.current_step));
   const step = steps[idx] || steps[0];
   const isResearcher = me && me.role === 'researcher';
 
   async function goTo(i) {
+    if (!isOrganizer) return;
+    if (i === -1) return backend.updateWorkshop(w.id, { current_step: 'cover', timer_ends_at: null });
     const s = steps[i];
-    if (!s || !isOrganizer) return;
+    if (!s) return;
     await backend.updateWorkshop(w.id, { current_step: s.key, timer_ends_at: null, status: w.status === 'draft' ? 'live' : w.status });
     await backend.setStepState(w.id, { timer_paused_ms: null });
   }
@@ -75,7 +80,7 @@ export function RoomView({ wsId, user }) {
   // Participants released after the flow step see a thank-you screen from then on.
   const flowIdx = steps.findIndex((s) => s.key === 'flow');
   const released = me && ((w.step_state || {}).released || []).includes(me.id) && flowIdx >= 0 && idx > flowIdx;
-  const StageToShow = released ? ReleasedStage : Stage;
+  const StageToShow = onCover ? CoverStage : released ? ReleasedStage : Stage;
 
   return html`
     <div class="room">
@@ -86,16 +91,18 @@ export function RoomView({ wsId, user }) {
       ]}>
         <div class="room-title">
           <b>${w.title}</b>
-          <span class="muted">Step ${idx + 1} of ${steps.length} · ${step.title}</span>
+          <span class="muted">${onCover ? 'Cover' : `Step ${idx + 1} of ${steps.length} · ${step.title}`}</span>
         </div>
         ${isOrganizer && isSimulated(w) && backend.mode !== 'demo' && html`<span class="pill pill-ai" title="AI results come from the built-in stand-in (Setup → Details → AI mode)">Simulated AI</span>`}
-        <${Timer} w=${w} step=${step} isOrganizer=${isOrganizer} />
+        ${!onCover && html`<${Timer} w=${w} step=${step} isOrganizer=${isOrganizer} />`}
       <//>
-      ${w.status === 'draft' && html`<div class="banner">${isOrganizer ? 'The workshop is in draft. Click Start workshop when everyone is here.' : "The workshop hasn't started yet. Hang tight: this page updates automatically."}</div>`}
+      ${w.status === 'draft' && html`<div class="banner">${isOrganizer ? 'Everyone sees the cover while they join. Click Start workshop when everyone is here.' : "The workshop hasn't started yet. Hang tight: this page updates automatically."}</div>`}
       <div class="room-body">
         <aside class="rail">
           <h4>Agenda</h4>
           <ol class="rail-steps">
+            <li><button class=${cx('rail-step', onCover && 'on', !onCover && 'done')} disabled=${!isOrganizer || w.status === 'draft'} onClick=${() => goTo(-1)}>
+              <span class="step-num">◆</span><span class="grow">Cover</span></button></li>
             ${steps.map((s, i) => html`
               <li key=${s.key}>
                 <button class=${cx('rail-step', i === idx && 'on', i < idx && 'done')} disabled=${!isOrganizer} onClick=${() => goTo(i)}>
@@ -119,9 +126,9 @@ export function RoomView({ wsId, user }) {
         <footer class="control-bar">
           <span class="muted small">Facilitator controls</span>
           <div class="row">
-            <button class="btn" disabled=${idx === 0} onClick=${() => goTo(idx - 1)}>← Previous</button>
+            <button class="btn" disabled=${onCover} onClick=${() => goTo(idx - 1)}>← Previous</button>
             ${w.status === 'draft'
-              ? html`<button class="btn btn-primary" onClick=${() => goTo(idx)}>Start workshop</button>`
+              ? html`<button class="btn btn-primary" onClick=${() => goTo(0)}>Start workshop</button>`
               : idx < steps.length - 1
                 ? html`<button class="btn btn-primary" onClick=${() => goTo(idx + 1)}>Next: ${steps[idx + 1].title} →</button>`
                 : html`<button class="btn btn-primary" disabled=${w.status === 'done'} onClick=${() => backend.updateWorkshop(w.id, { status: 'done', timer_ends_at: null })}>${w.status === 'done' ? 'Workshop completed' : 'Finish workshop'}</button>`}

@@ -40,13 +40,41 @@ function useAuthors(members) {
   return useMemo(() => Object.fromEntries(members.map((m) => [m.id, m])), [members]);
 }
 
+// The organizer shown to everyone: the facilitator(s) the owner assigned, or else the owner.
+function workshopHosts(members) {
+  const owner = members.find((m) => m.role === 'organizer');
+  const assigned = members.filter((m) => m.role === 'facilitator');
+  return { owner, assigned, hosts: assigned.length ? assigned : owner ? [owner] : [] };
+}
+
+// ── Cover: before step 1, shown while everyone joins (not an agenda step) ──
+export function CoverStage({ w, data }) {
+  const { hosts } = workshopHosts(data.members);
+  const people = data.members.filter((m) => !facilitates(m));
+  const here = people.filter((m) => m.joined_at);
+  return html`
+    <div class="cover">
+      <div class="cover-card">
+        <span class="eyebrow">${[w.project || 'Design thinking workshop', w.starts_at && fmtDate(w.starts_at)].filter(Boolean).join(' · ')}</span>
+        <h1 class="cover-title">${w.title}</h1>
+        ${w.description && html`<p class="cover-lead">${w.description}</p>`}
+        ${hosts.length > 0 && html`<p class="cover-host">Facilitated by ${hosts.map((m) => m.name).join(' & ')}</p>`}
+      </div>
+      <div class="cover-wait">
+        <div class="cover-wait-head"><span class="cover-pulse" aria-hidden="true"></span><b>${w.status === 'draft' ? 'Waiting for everyone to join' : 'Welcome'}</b>
+          <span class="muted">${here.length} of ${people.length} here</span></div>
+        <div class="cover-people">
+          ${people.map((m) => html`<span key=${m.id} class=${cx('cover-person', !m.joined_at && 'absent')} title=${m.name + (m.joined_at ? '' : ' (not here yet)')}>
+            <${Avatar} name=${m.name} color=${m.color} size=${36} /><span class="small">${m.name.split(' ')[0]}</span></span>`)}
+        </div>
+      </div>
+    </div>`;
+}
+
 // ── Step 1: Introductions ──
 export function IntroStage({ w, data }) {
   const intro = { ...defaultIntro(), ...w.intro };
-  // The organizer shown to everyone: the facilitator(s) the owner assigned, or else the owner.
-  const owner = data.members.find((m) => m.role === 'organizer');
-  const assigned = data.members.filter((m) => m.role === 'facilitator');
-  const hosts = assigned.length ? assigned : owner ? [owner] : [];
+  const { owner, assigned, hosts } = workshopHosts(data.members);
   // A welcome written in the owner's name ("I'm Alex Kahan…") is shown in the facilitator's.
   const welcome = assigned.length && owner?.name ? (intro.welcome || '').split(owner.name).join(assigned[0].name) : intro.welcome;
   const steps = activeSteps(w);

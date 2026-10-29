@@ -333,3 +333,19 @@ textarea { resize: vertical; }
 .row.end { justify-content: flex-end; }
 @media (max-width: 560px) { .choice-cards { grid-template-columns: 1fr; } }
 .pill-facilitator { background: #E6EFFF; color: var(--brand); }
+
+/* Cover: shown before step 1 while everyone joins */
+.cover { min-height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 24px; max-width: 1100px; margin: 0 auto; padding: 24px 0; }
+.cover-card { background: linear-gradient(135deg, #0A5DFF 0%, #0846C4 60%, #062F86 100%); color: #fff; border-radius: 16px; padding: clamp(32px, 6vw, 72px); box-shadow: var(--shadow); }
+.cover-card .eyebrow { color: rgba(255,255,255,.8); }
+.cover-title { font-size: clamp(36px, 6vw, 72px); line-height: 1.05; letter-spacing: -0.02em; margin: 14px 0 18px; font-weight: 700; }
+.cover-lead { font-size: clamp(16px, 1.8vw, 21px); line-height: 1.45; max-width: 760px; margin: 0; color: rgba(255,255,255,.92); }
+.cover-host { margin: 28px 0 0; font-weight: 700; color: rgba(255,255,255,.9); }
+.cover-wait { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; }
+.cover-wait-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.cover-pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); animation: cover-pulse 1.6s ease-in-out infinite; }
+@keyframes cover-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,.45); } 50% { box-shadow: 0 0 0 7px rgba(22,163,74,0); } }
+.cover-people { display: flex; flex-wrap: wrap; gap: 14px; }
+.cover-person { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 56px; text-align: center; }
+.cover-person.absent { opacity: .35; }
+@media (prefers-reduced-motion: reduce) { .cover-pulse { animation: none; } }
