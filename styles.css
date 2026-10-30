@@ -393,3 +393,20 @@ textarea { resize: vertical; }
 .rail-mini-steps .step-num.done { background: var(--ok-soft); color: var(--ok); }
 .rail-mini-people { margin-top: 4px; font-weight: 700; }
 textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; }
+
+/* Pre-work documents */
+.pill-missing { background: var(--warn-soft); color: #7A5A00; }
+.file-icon-empty { background: #ECEEF1; color: var(--muted); min-width: 30px; text-align: center; }
+.prework-list .list-row { align-items: flex-start; }
+.prework-row { border-bottom: 1px solid var(--line); border-radius: 6px; }
+.prework-row .list-row { border-bottom: 0; padding: 10px 6px; }
+.prework-row.drop-over { background: var(--brand-soft); outline: 2px dashed var(--brand); }
+.prework-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.prework-desc { white-space: pre-wrap; }
+.prework-edit { padding: 4px 6px 14px 46px; }
+.prework-h { margin: 4px 0 0; font-size: 14px; }
+.dropzone-sm { padding: 14px; }
+.btn.danger { color: var(--danger); }
+.banner-prework { display: flex; align-items: center; gap: 12px; background: var(--brand-soft); color: var(--text, #222); }
+.table-wrap { overflow-x: auto; }
+.prework-req-desc { font-weight: 400; }

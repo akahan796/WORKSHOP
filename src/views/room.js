@@ -6,6 +6,7 @@ import { activeSteps } from '../steps.js';
 import { useWorkshop } from '../useWorkshop.js';
 import { Header, Avatar, Empty, Modal } from './ui.js';
 import { ResearchManager } from './research.js';
+import { PreworkPanel } from './prework.js';
 import { CoverStage, IntroStage, ResearchStage, HmwStage, ComingSoonStage } from './stages.js';
 import { GridStage, VoteHmwStage } from './stages2.js';
 import { Crazy8Stage, Share8Stage, SolutionStage, ReviewStage, VoteSolutionStage } from './stages3.js';
@@ -51,6 +52,7 @@ function Timer({ w, step, isOrganizer }) {
 export function RoomView({ wsId, user }) {
   const data = useWorkshop(wsId, user);
   const [showResearch, setShowResearch] = useState(false);
+  const [showPrework, setShowPrework] = useState(false);
   // Agenda sidebar: collapsed by default for participants, open for facilitators;
   // each viewer's own choice is remembered in this browser.
   const [railPref, setRailPref] = useState(() => { try { return localStorage.getItem('wai_rail_' + user.id); } catch { return null; } });
@@ -85,6 +87,8 @@ export function RoomView({ wsId, user }) {
   // Participants released after the flow step see a thank-you screen from then on.
   const flowIdx = steps.findIndex((s) => s.key === 'flow');
   const released = me && ((w.step_state || {}).released || []).includes(me.id) && flowIdx >= 0 && idx > flowIdx;
+  // Documents requested from this person that they haven't uploaded yet.
+  const todo = me ? data.prework.filter((d) => d.requested_from === me.id && !d.file_path) : [];
   const StageToShow = onCover ? CoverStage : released ? ReleasedStage : Stage;
 
   return html`
@@ -92,6 +96,7 @@ export function RoomView({ wsId, user }) {
       <${Header} user=${user} menu=${[
         isOrganizer && { label: 'Workshop setup', onClick: () => navigate(`/w/${w.id}/setup`) },
         (isOrganizer || isResearcher) && { label: 'Manage research decks', onClick: () => setShowResearch(true) },
+        data.prework.length > 0 && { label: 'Pre-work documents', onClick: () => setShowPrework(true) },
         { label: 'Workshop summary', onClick: () => navigate(`/w/${w.id}/summary`) },
       ]}>
         <div class="room-title">
@@ -101,6 +106,9 @@ export function RoomView({ wsId, user }) {
         ${isOrganizer && isSimulated(w) && backend.mode !== 'demo' && html`<span class="pill pill-ai" title="AI results come from the built-in stand-in (Setup → Details → AI mode)">Simulated AI</span>`}
         ${!onCover && html`<${Timer} w=${w} step=${step} isOrganizer=${isOrganizer} />`}
       <//>
+      ${todo.length > 0 && html`<div class="banner banner-prework">
+        <span>You're asked to upload ${todo.length === 1 ? `"${todo[0].title}"` : `${todo.length} documents`} before the workshop.</span>
+        <button class="btn btn-sm btn-primary" onClick=${() => setShowPrework(true)}>Upload now</button></div>`}
       ${w.status === 'draft' && html`<div class="banner">${isOrganizer ? 'Everyone sees the cover while they join. Click Start workshop when everyone is here.' : "The workshop hasn't started yet. Hang tight: this page updates automatically."}</div>`}
       <div class="room-body">
         ${railCollapsed ? html`
@@ -148,6 +156,10 @@ export function RoomView({ wsId, user }) {
                 : html`<button class="btn btn-primary" disabled=${w.status === 'done'} onClick=${() => backend.updateWorkshop(w.id, { status: 'done', timer_ends_at: null })}>${w.status === 'done' ? 'Workshop completed' : 'Finish workshop'}</button>`}
           </div>
         </footer>`}
+      ${showPrework && html`
+        <${Modal} title="Pre-work" onClose=${() => setShowPrework(false)}>
+          <${PreworkPanel} data=${data} me=${me} />
+        <//>`}
       ${showResearch && html`
         <${Modal} title="Research decks" onClose=${() => setShowResearch(false)}>
           <${ResearchManager} wsId=${w.id} research=${data.research} me=${me} canEdit=${true} />

@@ -12,7 +12,7 @@ const listeners = new Set();
 const authListeners = new Set();
 const urlCache = {}; // file path → object URL
 
-const empty = () => ({ users: [], workshops: [], members: [], invites: [], research: [], stickies: [], votes: [], sheets: [], artifacts: [] });
+const empty = () => ({ users: [], workshops: [], members: [], invites: [], research: [], prework: [], stickies: [], votes: [], sheets: [], artifacts: [] });
 const load = () => { try { return { ...empty(), ...JSON.parse(localStorage.getItem(DB_KEY) || '{}') }; } catch { return empty(); } };
 const now = () => new Date().toISOString();
 
@@ -112,7 +112,7 @@ export function createDemoBackend() {
     async deleteWorkshop(id) {
       write((db) => {
         db.workshops = db.workshops.filter((w) => w.id !== id);
-        for (const t of ['members', 'invites', 'research', 'stickies', 'votes', 'sheets', 'artifacts']) db[t] = db[t].filter((r) => r.workshop_id !== id);
+        for (const t of ['members', 'invites', 'research', 'prework', 'stickies', 'votes', 'sheets', 'artifacts']) db[t] = db[t].filter((r) => r.workshop_id !== id);
       }, 'workshops');
     },
     // Same as the Supabase backend: clear the session's results, keep the setup.
@@ -157,7 +157,9 @@ export function createDemoBackend() {
         db.stickies = db.stickies.filter((s) => s.member_id !== id);
         db.votes = db.votes.filter((v) => v.member_id !== id);
         db.sheets = db.sheets.filter((x) => x.member_id !== id);
+        db.prework.forEach((d) => { if (d.requested_from === id) d.requested_from = null; if (d.uploaded_by === id) d.uploaded_by = null; });
       }, 'members');
+      emit('prework');
     },
     async listInvites(wsId) {
       return Object.fromEntries(load().invites.filter((i) => i.workshop_id === wsId).map((i) => [i.member_id, i.token]));
@@ -211,6 +213,39 @@ export function createDemoBackend() {
       return blob ? URL.createObjectURL(blob) : null;
     },
     async deleteResearch(item) { write((db) => { db.research = db.research.filter((r) => r.id !== item.id); }, 'research'); },
+
+    async listPrework(wsId) {
+      return load().prework.filter((d) => d.workshop_id === wsId).sort((a, b) => a.created_at.localeCompare(b.created_at));
+    },
+    async addPrework(wsId, fields) {
+      return write((db) => {
+        const d = { id: uid(), workshop_id: wsId, title: '', description: '', file_path: null, file_name: null, file_size: null,
+          requested_from: null, uploaded_by: null, uploaded_at: null, created_at: now(), ...fields };
+        db.prework.push(d);
+        return d;
+      }, 'prework');
+    },
+    async updatePrework(id, patch) {
+      return write((db) => { const d = db.prework.find((x) => x.id === id); Object.assign(d, patch); return d; }, 'prework');
+    },
+    async deletePrework(item) { write((db) => { db.prework = db.prework.filter((d) => d.id !== item.id); }, 'prework'); },
+    async uploadPrework(item, file) {
+      const path = `${item.workshop_id}/${item.id}/${uid()}-${file.name}`;
+      await putFile(path, file);
+      const me = currentUser();
+      write((db) => {
+        const d = db.prework.find((x) => x.id === item.id);
+        const mine = me && db.members.find((m) => m.workshop_id === d.workshop_id && m.user_id === me.id);
+        Object.assign(d, { file_path: path, file_name: file.name, file_size: file.size, uploaded_by: mine ? mine.id : null, uploaded_at: now() });
+      }, 'prework');
+    },
+    async removePreworkFile(item) {
+      return this.updatePrework(item.id, { file_path: null, file_name: null, file_size: null, uploaded_by: null, uploaded_at: null });
+    },
+    async preworkFileUrl(item) {
+      const blob = await getFile(item.file_path);
+      return blob ? URL.createObjectURL(blob) : null;
+    },
 
     async listStickies(wsId) {
       return load().stickies.filter((s) => s.workshop_id === wsId).sort((a, b) => a.created_at.localeCompare(b.created_at));

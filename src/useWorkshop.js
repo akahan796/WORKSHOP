@@ -5,10 +5,10 @@
 import { useState, useEffect, useCallback, useRef } from './lib.js';
 import { backend } from './backend/index.js';
 
-const TABLES = ['workshops', 'members', 'research', 'stickies', 'votes', 'sheets', 'artifacts'];
+const TABLES = ['workshops', 'members', 'research', 'prework', 'stickies', 'votes', 'sheets', 'artifacts'];
 
 export function useWorkshop(wsId, user) {
-  const [state, setState] = useState({ loading: true, workshop: null, members: [], research: [], stickies: [], votes: [], sheets: [], artifacts: [], invites: {}, error: null });
+  const [state, setState] = useState({ loading: true, workshop: null, members: [], research: [], prework: [], stickies: [], votes: [], sheets: [], artifacts: [], invites: {}, error: null });
   const seq = useRef({});
 
   const fetchTable = useCallback(async (table) => {
@@ -24,6 +24,7 @@ export function useWorkshop(wsId, user) {
       }
     }
     if (table === 'research') patch.research = await backend.listResearch(wsId);
+    if (table === 'prework') patch.prework = await backend.listPrework(wsId);
     if (table === 'stickies') patch.stickies = await backend.listStickies(wsId);
     if (table === 'votes') patch.votes = await backend.listVotes(wsId);
     if (table === 'sheets') patch.sheets = await backend.listSheets(wsId);

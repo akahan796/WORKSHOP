@@ -6,9 +6,10 @@ import { useWorkshop } from '../useWorkshop.js';
 import { Field, SaveOnBlur, Avatar, useCopy, Empty, Modal } from './ui.js';
 import { generateSynthetic, isSimulated } from '../ai.js';
 import { ResearchManager } from './research.js';
+import { PreworkManager, RequestDocsModal } from './prework.js';
 import { DEFAULT_SKILLS, skillFor, isDefaultSkill, downloadSkill } from '../skills.js';
 
-const TABS = [['details', 'Details'], ['intro', 'Introduction'], ['agenda', 'Agenda'], ['people', 'People & invites'], ['research', 'Research'], ['skills', 'Skills']];
+const TABS = [['details', 'Details'], ['intro', 'Introduction'], ['agenda', 'Agenda'], ['people', 'People & invites'], ['research', 'Research'], ['prework', 'Pre-work'], ['skills', 'Skills']];
 
 export function SetupView({ wsId, user }) {
   const data = useWorkshop(wsId, user);
@@ -34,7 +35,7 @@ export function SetupView({ wsId, user }) {
         </div>
       </div>
       <nav class="tabs">
-        ${TABS.map(([k, label]) => html`<button key=${k} class=${cx('tab', tab === k && 'tab-on')} onClick=${() => setTab(k)}>${label}${k === 'people' ? html` <span class="count">${data.members.length}</span>` : ''}</button>`)}
+        ${TABS.map(([k, label]) => html`<button key=${k} class=${cx('tab', tab === k && 'tab-on')} onClick=${() => setTab(k)}>${label}${k === 'people' ? html` <span class="count">${data.members.length}</span>` : k === 'prework' && data.prework.length ? html` <span class="count">${data.prework.filter((d) => d.file_path).length}/${data.prework.length}</span>` : ''}</button>`)}
       </nav>
       <section class="card setup-panel">
         ${tab === 'details' && html`<${Details} w=${w} save=${save} />`}
@@ -42,6 +43,7 @@ export function SetupView({ wsId, user }) {
         ${tab === 'agenda' && html`<${Agenda} w=${w} save=${save} />`}
         ${tab === 'people' && html`<${People} w=${w} data=${data} />`}
         ${tab === 'skills' && html`<${Skills} w=${w} save=${save} />`}
+        ${tab === 'prework' && html`<${PreworkManager} w=${w} data=${data} />`}
         ${tab === 'research' && html`<${ResearchManager} wsId=${w.id} research=${data.research} me=${data.me} canEdit=${true} />`}
       </section>
     </main>`;
@@ -206,10 +208,11 @@ function Agenda({ w, save }) {
     </div>`;
 }
 
-function mailtoInvite(w, m, link) {
+function mailtoInvite(w, m, link, docs = []) {
   const subject = `You're invited: ${w.title}`;
   const when = w.starts_at ? `\nWhen: ${fmtDate(w.starts_at)}` : '';
-  const body = `Hi ${m.name.split(' ')[0] || 'there'},\n\nYou're invited to join "${w.title}" as a ${ROLES[m.role].toLowerCase()}.${when}\n\n${w.description || ''}\n\nJoin here (no account needed):\n${link}\n\nSee you there!`;
+  const ask = docs.length ? `\n\nBefore the workshop, please upload these documents from the same link:\n${docs.map((d) => `- ${d.title}`).join('\n')}` : '';
+  const body = `Hi ${m.name.split(' ')[0] || 'there'},\n\nYou're invited to join "${w.title}" as a ${ROLES[m.role].toLowerCase()}.${when}\n\n${w.description || ''}\n\nJoin here (no account needed):\n${link}${ask}\n\nSee you there!`;
   return `mailto:${encodeURIComponent(m.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
@@ -217,6 +220,8 @@ function People({ w, data }) {
   const [form, setForm] = useState({ name: '', email: '', role: 'participant', discipline: 'design' });
   const [copied, copy] = useCopy();
   const [showSynth, setShowSynth] = useState(false);
+  const [requesting, setRequesting] = useState(null);
+  const requestsFor = (m) => data.prework.filter((d) => d.requested_from === m.id);
   // The owner is always a facilitator and is listed first, without a role picker or invite.
   const owner = data.members.find((m) => m.role === 'organizer');
   const people = data.members.filter((m) => m.role !== 'organizer');
@@ -232,14 +237,14 @@ function People({ w, data }) {
   return html`
     <div class="stack">
       <p class="muted">Each person gets a personal guest link. It takes them straight to this workshop, with no account needed. <b>Send invite</b> opens a prefilled email in your mail app.${' '}<b>Facilitators</b> get the facilitator controls: they run the steps and timer, use the AI actions and can edit this setup. They don't sketch or vote.</p>
-      <table class="table">
-        <thead><tr><th>Person</th><th>Role</th><th>Discipline</th><th title="The Decider votes in purple and makes the final call">Decider</th><th>Status</th><th>Invite</th><th></th></tr></thead>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Person</th><th>Role</th><th>Discipline</th><th title="The Decider votes in purple and makes the final call">Decider</th><th>Status</th><th title="Documents this person is asked to upload">Pre-work</th><th>Invite</th><th></th></tr></thead>
         <tbody>
           ${owner && html`<tr key=${owner.id}>
             <td><div class="row"><${Avatar} name=${owner.name} color=${owner.color} /><div><b>${owner.name || '(no name)'}</b><div class="muted small">${owner.email}</div></div></div></td>
             <td><span class="pill pill-facilitator">Facilitator</span> <span class="muted small">Owner</span></td>
             <td><span class="muted">—</span></td><td></td>
-            <td><span class="pill pill-live">Joined</span></td>
+            <td><span class="pill pill-live">Joined</span></td><td></td>
             <td><span class="muted small">Signed in with an account</span></td><td></td>
           </tr>`}
           ${people.map((m) => { const link = data.invites[m.id] ? inviteUrl(data.invites[m.id]) : ''; return html`
@@ -251,14 +256,17 @@ function People({ w, data }) {
                 ${Object.entries(DISCIPLINES).map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}</select>` : html`<span class="muted">—</span>`}</td>
               <td>${m.role !== 'facilitator' && html`<input type="radio" name="decider" checked=${m.is_decider} onChange=${() => backend.updateMember(m.id, { is_decider: true })} aria-label=${'Make ' + m.name + ' the Decider'} />`}</td>
               <td>${m.is_synthetic ? html`<span class="pill pill-ai">Synthetic</span>` : m.joined_at ? html`<span class="pill pill-live">Joined</span>` : html`<span class="pill">Invited</span>`}</td>
+              <td>${m.is_synthetic ? html`<span class="muted">—</span>` : (() => { const r = requestsFor(m), done = r.filter((d) => d.file_path).length; return html`
+                <button class="btn btn-sm" title="Request documents for this person to upload" onClick=${() => setRequesting(m)}>${r.length ? `Requested ${r.length}` : 'Request docs'}</button>
+                ${r.length > 0 && html`<div class="muted small">${done} of ${r.length} uploaded</div>`}`; })()}</td>
               <td>${m.is_synthetic ? html`<span class="muted small">No invite needed</span>` : html`<div class="row nowrap">
                 <button class="btn btn-sm" disabled=${!link} onClick=${() => copy(link, m.id)}>${copied === m.id ? 'Copied ✓' : 'Copy link'}</button>
-                <a class=${cx('btn btn-sm', !m.email && 'disabled')} href=${m.email && link ? mailtoInvite(w, m, link) : undefined}>Send invite</a>
+                <a class=${cx('btn btn-sm', !m.email && 'disabled')} href=${m.email && link ? mailtoInvite(w, m, link, requestsFor(m).filter((d) => !d.file_path)) : undefined}>Send invite</a>
               </div>`}</td>
               <td><button class="btn btn-ghost btn-sm" aria-label=${'Remove ' + m.name} onClick=${() => confirm(`Remove ${m.name}? Their stickies are removed too.`) && backend.removeMember(m.id)}>✕</button></td>
             </tr>`; })}
         </tbody>
-      </table>
+      </table></div>
       ${!people.length && html`<p class="muted small">No one invited yet.</p>`}
       <form class="add-person" onSubmit=${add}>
         <input required placeholder="Full name" value=${form.name} onInput=${(e) => setForm({ ...form, name: e.target.value })} />
@@ -269,6 +277,7 @@ function People({ w, data }) {
         <button class="btn btn-primary">Add</button>
       </form>
       <div class="row"><button class="btn" onClick=${() => setShowSynth(true)}>✨ Generate synthetic participants</button><span class="muted small">AI participants fill empty seats: they add stickies, HMWs and votes when a facilitator asks them to. One can be the Decider.</span></div>
+      ${requesting && html`<${RequestDocsModal} w=${w} data=${data} member=${requesting} onClose=${() => setRequesting(null)} />`}
       ${showSynth && html`<${SynthModal} w=${w} members=${data.members} onClose=${() => setShowSynth(false)} />`}
     </div>`;
 }

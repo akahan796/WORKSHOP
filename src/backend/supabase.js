@@ -9,7 +9,7 @@ import { KEEP_STATE } from '../lib.js';
 // let the organizer's session leak into guest tabs (and vice versa).
 const GUEST_KEY = 'wai_guest_storage_key';
 const urlCache = {}; // sketch path → { url, exp }
-const LIVE_TABLES = ['workshops', 'members', 'research', 'stickies', 'votes', 'sheets', 'artifacts'];
+const LIVE_TABLES = ['workshops', 'members', 'research', 'prework', 'stickies', 'votes', 'sheets', 'artifacts'];
 
 export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
   let user = null;
@@ -128,6 +128,30 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
       ok(await sb.from('research').delete().eq('id', item.id));
     },
 
+    // Pre-work documents: a row per document; file_path stays null until someone uploads it.
+    async listPrework(wsId) { return ok(await sb.from('prework').select('*').eq('workshop_id', wsId).order('created_at')); },
+    async addPrework(wsId, fields) { return ok(await sb.from('prework').insert({ ...fields, workshop_id: wsId }).select().single()); },
+    async updatePrework(id, patch) { return ok(await sb.from('prework').update(patch).eq('id', id).select().single()); },
+    async deletePrework(item) {
+      if (item.file_path) await sb.storage.from('prework').remove([item.file_path]);
+      ok(await sb.from('prework').delete().eq('id', item.id));
+    },
+    // Facilitators and the person a document was requested from can upload (submit_prework checks).
+    async uploadPrework(item, file) {
+      const path = `${item.workshop_id}/${item.id}/${crypto.randomUUID()}-${file.name.replace(/[^\w.-]+/g, '_')}`;
+      ok(await sb.storage.from('prework').upload(path, file, { contentType: file.type || undefined }));
+      ok(await sb.rpc('submit_prework', { p_id: item.id, p_path: path, p_name: file.name, p_size: file.size }));
+      if (item.file_path) await sb.storage.from('prework').remove([item.file_path]); // only facilitators may; harmless otherwise
+    },
+    async removePreworkFile(item) {
+      if (item.file_path) await sb.storage.from('prework').remove([item.file_path]);
+      return ok(await sb.from('prework').update({ file_path: null, file_name: null, file_size: null, uploaded_by: null, uploaded_at: null }).eq('id', item.id).select().single());
+    },
+    async preworkFileUrl(item) {
+      const data = ok(await sb.storage.from('prework').createSignedUrl(item.file_path, 60 * 60, { download: item.file_name || true }));
+      return data.signedUrl;
+    },
+
     async listStickies(wsId) { return ok(await sb.from('stickies').select('*').eq('workshop_id', wsId).order('created_at')); },
     async addSticky(fields) { return ok(await sb.from('stickies').insert(fields).select().single()); },
     async updateSticky(id, patch) { return ok(await sb.from('stickies').update(patch).eq('id', id).select().single()); },
@@ -228,8 +252,9 @@ export function createSupabaseBackend({ supabaseUrl, supabaseAnonKey }) {
   // Writes notify this tab's subscribers right away, without waiting for realtime.
   const WRITES = {
     updateWorkshop: ['workshops'], setStepState: ['workshops'], setDecision: ['workshops'],
-    addMember: ['members'], updateMember: ['members'], removeMember: ['members', 'stickies', 'votes', 'sheets'], claimInvite: ['members'],
+    addMember: ['members'], updateMember: ['members'], removeMember: ['members', 'stickies', 'votes', 'sheets', 'prework'], claimInvite: ['members'],
     uploadResearch: ['research'], deleteResearch: ['research'],
+    addPrework: ['prework'], updatePrework: ['prework'], deletePrework: ['prework'], uploadPrework: ['prework'], removePreworkFile: ['prework'],
     addSticky: ['stickies'], updateSticky: ['stickies'], deleteSticky: ['stickies', 'votes'],
     resetWorkshop: ['workshops', 'stickies', 'votes', 'sheets', 'artifacts'],
     addVotes: ['votes'], deleteVote: ['votes'], deleteVotes: ['votes'], saveSheet: ['sheets'], saveArtifact: ['artifacts'],
