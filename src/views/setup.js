@@ -225,7 +225,7 @@ function People({ w, data }) {
   // The owner is always a facilitator and is listed first, without a role picker or invite.
   const owner = data.members.find((m) => m.role === 'organizer');
   const people = data.members.filter((m) => m.role !== 'organizer');
-  const roleOptions = html`<option value="participant">Participant</option><option value="researcher">Researcher</option><option value="facilitator">Facilitator</option>`;
+  const roleOptions = html`<option value="participant">Participant</option><option value="facilitator">Facilitator</option>`;
 
   async function add(e) {
     e.preventDefault();
@@ -301,7 +301,7 @@ function SynthModal({ w, members, onClose }) {
         <p class="muted">AI creates realistic OneStream colleagues with their own perspective on ${w.project || 'this project'}. They join immediately and contribute only when a facilitator asks them to in the room.</p>
         <${Field} label="How many"><input type="number" min="1" max="8" value=${count} onInput=${(e) => setCount(Number(e.target.value))} /><//>
         <div class="field"><span class="field-label">Disciplines</span>
-          <div class="row">${Object.entries(DISCIPLINES).map(([k, v]) => html`<label key=${k} class="toggle"><input type="checkbox" checked=${disc[k]} onChange=${(e) => setDisc({ ...disc, [k]: e.target.checked })} /> ${v}</label>`)}</div>
+          <div class="row">${Object.entries(DISCIPLINES).filter(([k]) => k in disc).map(([k, v]) => html`<label key=${k} class="toggle"><input type="checkbox" checked=${disc[k]} onChange=${(e) => setDisc({ ...disc, [k]: e.target.checked })} /> ${v}</label>`)}</div>
         </div>
         <${Field} label="Guidance (optional)" hint="e.g. 'one skeptical senior engineer', 'a PM who owns the close process'"><textarea rows="2" value=${guidance} onInput=${(e) => setGuidance(e.target.value)}></textarea><//>
         ${error && html`<p class="error">${error}</p>`}

@@ -124,7 +124,7 @@ export function FlowStage({ w, data, me, isOrganizer }) {
 // After the flow step, non-design participants are typically released.
 function ReleasePanel({ w, data }) {
   const released = (w.step_state || {}).released || [];
-  const people = data.members.filter((m) => m.role === 'participant' && !m.is_synthetic);
+  const people = data.members.filter((m) => m.role === 'participant' && m.discipline !== 'researcher' && !m.is_synthetic);
   const [pick, setPick] = useState(() => new Set(people.filter((m) => m.discipline !== 'design' && !m.is_decider).map((m) => m.id)));
   if (!people.length) return null;
   return html`

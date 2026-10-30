@@ -67,7 +67,7 @@ export function RoomView({ wsId, user }) {
   const onCover = w.status === 'draft' || w.current_step === 'cover';
   const idx = onCover ? -1 : Math.max(0, steps.findIndex((s) => s.key === w.current_step));
   const step = steps[idx] || steps[0];
-  const isResearcher = me && me.role === 'researcher';
+  const isResearcher = me && me.role === 'participant' && me.discipline === 'researcher';
 
   async function goTo(i) {
     if (!isOrganizer) return;

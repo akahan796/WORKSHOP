@@ -6,7 +6,7 @@
 --
 -- Auth model:
 --   • Organizers are real Supabase users (email + password).
---   • Everyone else (researchers, participants) signs in ANONYMOUSLY from their
+--   • Everyone else (participants, including researchers) signs in ANONYMOUSLY from their
 --     invite link and is bound to one workshop via claim_invite().
 --   • Row-level security limits every table to members of the workshop.
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -43,8 +43,8 @@ create table members (
   user_id      uuid references auth.users on delete set null,
   name         text not null default '',
   email        text not null default '',
-  role         text not null check (role in ('organizer','facilitator','researcher','participant')),
-  discipline   text check (discipline in ('design','pm','eng')),
+  role         text not null check (role in ('organizer','facilitator','participant')),
+  discipline   text check (discipline in ('design','pm','eng','researcher')),
   color        text not null default '#FFE27A',
   is_decider   boolean not null default false,
   is_synthetic boolean not null default false,
@@ -106,6 +106,12 @@ language sql security definer stable set search_path = public as $$
   select exists (select 1 from members where workshop_id = ws and user_id = auth.uid() and role = r);
 $$;
 
+-- Researchers are participants whose discipline is 'researcher'; they present.
+create or replace function is_researcher(ws uuid) returns boolean
+language sql security definer stable set search_path = public as $$
+  select exists (select 1 from members where workshop_id = ws and user_id = auth.uid() and discipline = 'researcher');
+$$;
+
 create or replace function my_member_id(ws uuid) returns uuid
 language sql security definer stable set search_path = public as $$
   select id from members where workshop_id = ws and user_id = auth.uid() limit 1;
@@ -141,7 +147,7 @@ $$;
 create or replace function set_step_state(ws uuid, patch jsonb)
 returns void language plpgsql security definer set search_path = public as $$
 begin
-  if not (is_organizer(ws) or has_role(ws, 'researcher')) then raise exception 'not allowed'; end if;
+  if not (is_organizer(ws) or is_researcher(ws)) then raise exception 'not allowed'; end if;
   update workshops set step_state = step_state || patch where id = ws;
 end $$;
 
@@ -205,9 +211,9 @@ create policy "organizer reads invites" on invites for select using (is_organize
 
 create policy "members read research" on research for select using (is_member(workshop_id));
 create policy "presenters add research" on research for insert
-  with check (is_organizer(workshop_id) or has_role(workshop_id, 'researcher'));
+  with check (is_organizer(workshop_id) or is_researcher(workshop_id));
 create policy "presenters remove research" on research for delete
-  using (is_organizer(workshop_id) or has_role(workshop_id, 'researcher'));
+  using (is_organizer(workshop_id) or is_researcher(workshop_id));
 
 create policy "members read stickies" on stickies for select using (is_member(workshop_id));
 create policy "members add own stickies" on stickies for insert
@@ -229,4 +235,4 @@ create policy "members read decks" on storage.objects for select
   using (bucket_id = 'research' and is_member(((storage.foldername(name))[1])::uuid));
 create policy "presenters upload decks" on storage.objects for insert
   with check (bucket_id = 'research' and (
-    is_organizer(((storage.foldername(name))[1])::uuid) or has_role(((storage.foldername(name))[1])::uuid, 'researcher')));
+    is_organizer(((storage.foldername(name))[1])::uuid) or is_researcher(((storage.foldername(name))[1])::uuid)));

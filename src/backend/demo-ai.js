@@ -39,7 +39,7 @@ const tasks = {
     const project = recon ? 'Account Reconciliations' : (topic.length > 48 ? topic.slice(0, 48).replace(/\s+\S*$/, '') : topic).replace(/^./, (c) => c.toUpperCase());
     const users = recon ? 'preparers and reviewers' : 'the people who use it';
     const team = [
-      ['Priya Shah', 'researcher', 'design'], ['Dana Lee', 'participant', 'design'], ['Marcus Chen', 'participant', 'pm', true],
+      ['Priya Shah', 'participant', 'researcher'], ['Dana Lee', 'participant', 'design'], ['Marcus Chen', 'participant', 'pm', true],
       ['Sofia Alvarez', 'participant', 'eng'], ['Tom Becker', 'participant', 'eng'], ['Hannah Wright', 'participant', 'design'],
       ['Luis Romero', 'participant', 'pm'], ['Mei Tanaka', 'participant', 'eng'], ['Arjun Mehta', 'participant', 'design'],
     ].slice(0, 1 + Math.max(2, Math.min(8, Number(body.participants) || 4)));

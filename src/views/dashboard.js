@@ -44,7 +44,7 @@ export async function createDemoWorkshop(user, opts, onProgress = () => {}) {
         is_decider: isDecider, color: nextColor(members),
       });
       members.push(m);
-      if (p.role === 'researcher' && !researcher) researcher = m;
+      if (p.discipline === 'researcher' && !researcher) researcher = m;
     }
   }
   if (deck && content.deck?.slides?.length) {

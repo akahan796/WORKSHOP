@@ -17,8 +17,8 @@ export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.
 export const token = () => (uid() + uid()).replace(/-/g, '');
 export const cx = (...a) => a.filter(Boolean).join(' ');
 
-export const DISCIPLINES = { design: 'Product Design', pm: 'Product Management', eng: 'Engineering' };
-export const ROLES = { organizer: 'Facilitator', facilitator: 'Facilitator', researcher: 'Researcher', participant: 'Participant' };
+export const DISCIPLINES = { design: 'Product Design', pm: 'Product Management', eng: 'Engineering', researcher: 'UX Research' };
+export const ROLES = { organizer: 'Facilitator', facilitator: 'Facilitator', participant: 'Participant' };
 // Facilitators run the workshop: the workshop's creator (role 'organizer', also
 // the owner) and anyone else given the Facilitator role. They don't sketch or vote.
 // Workshop settings stored in step_state that survive a reset (the rest is live session state).

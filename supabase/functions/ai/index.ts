@@ -46,7 +46,7 @@ const CORS = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
-const DISCIPLINES: Record<string, string> = { design: "Product Design", pm: "Product Management", eng: "Engineering" };
+const DISCIPLINES: Record<string, string> = { design: "Product Design", pm: "Product Management", eng: "Engineering", researcher: "UX Research" };
 
 // One Claude call that must answer through a single strict tool. Forced
 // tool_choice isn't available on Claude Opus 5.5, so the prompt names the tool
@@ -236,7 +236,7 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
     const topic = String(body.topic || "").trim().slice(0, 1000) || "a OneStream finance product area of your choice";
     const out = await callTool(
       SYSTEM + " You create realistic demo content for a new workshop, so an organizer can show how the workshop runs.",
-      [{ type: "text", text: `Create demo content for a design-thinking workshop about: ${topic}\n\nGive: a workshop title; the project / product area (short); a one-sentence goal; a 2–3 sentence project background; a team of 1 UX researcher and ${Math.max(2, Math.min(8, Number(body.participants) || 4))} participants spread across design, pm (product management) and eng (engineering), with exactly one participant marked as the Decider (usually the PM); and a UX research share-out deck of 5–7 slides (title slide first, then findings with evidence, then a summary). Slide bullets are short (under 15 words), concrete, and cite realistic research evidence (interview counts, quotes, metrics). Names are realistic and varied; emails use @example.com.` }],
+      [{ type: "text", text: `Create demo content for a design-thinking workshop about: ${topic}\n\nGive: a workshop title; the project / product area (short); a one-sentence goal; a 2–3 sentence project background; a team of 1 UX researcher (role participant, discipline researcher) and ${Math.max(2, Math.min(8, Number(body.participants) || 4))} participants spread across design, pm (product management) and eng (engineering), with exactly one participant marked as the Decider (usually the PM); and a UX research share-out deck of 5–7 slides (title slide first, then findings with evidence, then a summary). Slide bullets are short (under 15 words), concrete, and cite realistic research evidence (interview counts, quotes, metrics). Names are realistic and varied; emails use @example.com.` }],
       {
         name: "create_demo",
         description: "Create the demo workshop content.",
@@ -248,8 +248,8 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
               type: "object", additionalProperties: false, required: ["name", "email", "role", "discipline", "is_decider"],
               properties: {
                 name: { type: "string" }, email: { type: "string" },
-                role: { type: "string", enum: ["researcher", "participant"] },
-                discipline: { type: "string", enum: ["design", "pm", "eng"] },
+                role: { type: "string", enum: ["participant"] },
+                discipline: { type: "string", enum: ["design", "pm", "eng", "researcher"] },
                 is_decider: { type: "boolean" },
               },
             } },
