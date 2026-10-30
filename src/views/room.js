@@ -138,7 +138,7 @@ export function RoomView({ wsId, user }) {
               <li key=${m.id} class=${cx(!m.joined_at && 'absent')}>
                 <${Avatar} name=${m.name} color=${m.color} size=${24} />
                 <span class="grow">${m.name}${me && m.id === me.id ? ' (you)' : ''}${m.is_synthetic ? html` <span class="pill pill-ai">AI</span>` : ''}</span>
-                <span class="muted small">${m.is_decider ? 'Decider' : m.role === 'participant' ? (DISCIPLINES[m.discipline] || '').replace('Product ', '') : ROLES[m.role]}</span>
+                <span class="muted small">${m.is_decider ? 'Decider' : m.role === 'participant' ? (DISCIPLINES[m.discipline] || '').replace('Product ', '') : ROLES[m.role] || ''}</span>
               </li>`)}
           </ul>
         </aside>`}

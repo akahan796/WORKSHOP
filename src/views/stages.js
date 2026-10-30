@@ -120,7 +120,7 @@ export function IntroStage({ w, data, isOrganizer }) {
     people: () => html`<div class="islide-people">${people.map((m) => html`
       <div key=${m.id} class=${cx('islide-person', !m.joined_at && 'absent')}>
         <${Avatar} name=${m.name} color=${m.color} size=${44} />
-        <div><b>${m.name}</b>${m.is_synthetic && html` <span class="pill pill-ai">AI</span>`}<span>${m.role === 'participant' ? DISCIPLINES[m.discipline] : ROLES[m.role]}${m.is_decider ? ' · Decider' : ''}${!m.joined_at ? ' · not here yet' : ''}</span></div>
+        <div><b>${m.name}</b>${m.is_synthetic && html` <span class="pill pill-ai">AI</span>`}<span>${m.role === 'participant' ? DISCIPLINES[m.discipline] || 'Participant' : ROLES[m.role] || 'Participant'}${m.is_decider ? ' · Decider' : ''}${!m.joined_at ? ' · not here yet' : ''}</span></div>
       </div>`)}</div>`,
   };
   const render = (s) => (s.custom ? html`<p class="islide-text islide-pre">${s.text}</p>` : body[s.key]());

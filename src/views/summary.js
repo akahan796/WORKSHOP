@@ -45,7 +45,7 @@ export function SummaryView({ wsId, user }) {
 
       <section><h2>People</h2>
         <div class="people-grid">${data.members.map((m) => html`<div key=${m.id} class="person"><${Avatar} name=${m.name} color=${m.color} size=${32} />
-          <div><b>${m.name}</b>${m.is_synthetic ? ' (AI)' : ''}<div class="muted small">${m.role === 'participant' ? DISCIPLINES[m.discipline] : ROLES[m.role]}${m.is_decider ? ' · Decider' : ''}</div></div></div>`)}</div>
+          <div><b>${m.name}</b>${m.is_synthetic ? ' (AI)' : ''}<div class="muted small">${m.role === 'participant' ? DISCIPLINES[m.discipline] || 'Participant' : ROLES[m.role] || 'Participant'}${m.is_decider ? ' · Decider' : ''}</div></div></div>`)}</div>
       </section>
 
       <section><h2>The problem we chose</h2>

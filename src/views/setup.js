@@ -1,5 +1,5 @@
 // Organizer workshop setup: details, introduction, agenda, people & invites, research.
-import { html, useState, navigate, nextColor, inviteUrl, DISCIPLINES, ROLES, cx, fmtDate, uid } from '../lib.js';
+import { html, useState, navigate, nextColor, inviteUrl, DISCIPLINES, roleLabel, cx, fmtDate, uid } from '../lib.js';
 import { backend } from '../backend/index.js';
 import { STEPS, BUILT_PHASE, defaultAgenda, defaultIntro, introSlideOrder } from '../steps.js';
 import { useWorkshop } from '../useWorkshop.js';
@@ -212,7 +212,7 @@ function mailtoInvite(w, m, link, docs = []) {
   const subject = `You're invited: ${w.title}`;
   const when = w.starts_at ? `\nWhen: ${fmtDate(w.starts_at)}` : '';
   const ask = docs.length ? `\n\nBefore the workshop, please upload these documents from the same link:\n${docs.map((d) => `- ${d.title}`).join('\n')}` : '';
-  const body = `Hi ${m.name.split(' ')[0] || 'there'},\n\nYou're invited to join "${w.title}" as a ${ROLES[m.role].toLowerCase()}.${when}\n\n${w.description || ''}\n\nJoin here (no account needed):\n${link}${ask}\n\nSee you there!`;
+  const body = `Hi ${m.name.split(' ')[0] || 'there'},\n\nYou're invited to join "${w.title}" as ${m.discipline === 'researcher' ? 'the' : 'a'} ${roleLabel(m).replace(/^(?!UX)./, (c) => c.toLowerCase())}.${when}\n\n${w.description || ''}\n\nJoin here (no account needed):\n${link}${ask}\n\nSee you there!`;
   return `mailto:${encodeURIComponent(m.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
