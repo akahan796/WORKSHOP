@@ -410,3 +410,4 @@ textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-h
 .banner-prework { display: flex; align-items: center; gap: 12px; background: var(--brand-soft); color: var(--text, #222); }
 .table-wrap { overflow-x: auto; }
 .prework-req-desc { font-weight: 400; }
+.select-decider { color: var(--purple); font-weight: 700; border-color: #D9C7FF; }

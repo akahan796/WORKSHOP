@@ -212,7 +212,7 @@ function mailtoInvite(w, m, link, docs = []) {
   const subject = `You're invited: ${w.title}`;
   const when = w.starts_at ? `\nWhen: ${fmtDate(w.starts_at)}` : '';
   const ask = docs.length ? `\n\nBefore the workshop, please upload these documents from the same link:\n${docs.map((d) => `- ${d.title}`).join('\n')}` : '';
-  const body = `Hi ${m.name.split(' ')[0] || 'there'},\n\nYou're invited to join "${w.title}" as ${m.discipline === 'researcher' ? 'the' : 'a'} ${roleLabel(m).replace(/^(?!UX)./, (c) => c.toLowerCase())}.${when}\n\n${w.description || ''}\n\nJoin here (no account needed):\n${link}${ask}\n\nSee you there!`;
+  const body = `Hi ${m.name.split(' ')[0] || 'there'},\n\nYou're invited to join "${w.title}" as ${m.is_decider || m.discipline === 'researcher' ? 'the' : 'a'} ${roleLabel(m).replace(/^(?!UX|Decider)./, (c) => c.toLowerCase())}.${when}\n\n${w.description || ''}\n\nJoin here (no account needed):\n${link}${ask}\n\nSee you there!`;
   return `mailto:${encodeURIComponent(m.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
@@ -225,36 +225,45 @@ function People({ w, data }) {
   // The owner is always a facilitator and is listed first, without a role picker or invite.
   const owner = data.members.find((m) => m.role === 'organizer');
   const people = data.members.filter((m) => m.role !== 'organizer');
-  const roleOptions = html`<option value="participant">Participant</option><option value="facilitator">Facilitator</option>`;
+  // Decider is shown as a role, but it's a participant with the is_decider flag
+  // (there's one per workshop: picking it for someone moves it from whoever had it).
+  const roleOptions = html`<option value="participant">Participant</option><option value="decider">Decider</option><option value="facilitator">Facilitator</option>`;
+  const synthRoleOptions = html`<option value="participant">Participant</option><option value="decider">Decider</option>`;
+  const roleOf = (m) => (m.is_decider ? 'decider' : m.role);
+  const hasDiscipline = (role) => role === 'participant' || role === 'decider';
+  const setRole = (m, role) => backend.updateMember(m.id, role === 'facilitator'
+    ? { role, discipline: null, is_decider: false }
+    : { role: 'participant', discipline: m.discipline || 'design', is_decider: role === 'decider' });
 
   async function add(e) {
     e.preventDefault();
-    await backend.addMember(w.id, { ...form, name: form.name.trim(), email: form.email.trim(),
-      discipline: form.role === 'participant' ? form.discipline : null, color: nextColor(data.members) });
+    const { role, ...rest } = form;
+    const m = await backend.addMember(w.id, { ...rest, role: role === 'facilitator' ? 'facilitator' : 'participant', name: form.name.trim(), email: form.email.trim(),
+      discipline: hasDiscipline(role) ? form.discipline : null, color: nextColor(data.members) });
+    if (role === 'decider') await backend.updateMember(m.id, { is_decider: true });
     setForm({ ...form, name: '', email: '' });
   }
 
   return html`
     <div class="stack">
-      <p class="muted">Each person gets a personal guest link. It takes them straight to this workshop, with no account needed. <b>Send invite</b> opens a prefilled email in your mail app.${' '}<b>Facilitators</b> get the facilitator controls: they run the steps and timer, use the AI actions and can edit this setup. They don't sketch or vote.</p>
+      <p class="muted">Each person gets a personal guest link. It takes them straight to this workshop, with no account needed. <b>Send invite</b> opens a prefilled email in your mail app.${' '}<b>Facilitators</b> get the facilitator controls: they run the steps and timer, use the AI actions and can edit this setup. They don't sketch or vote.${' '}<b>The Decider</b> takes part like a participant, but their votes show in purple, count double, and they make the final call. There's one Decider: choosing it for someone else moves it to them.</p>
       <div class="table-wrap"><table class="table">
-        <thead><tr><th>Person</th><th>Role</th><th>Discipline</th><th title="The Decider votes in purple and makes the final call">Decider</th><th>Status</th><th title="Documents this person is asked to upload">Pre-work</th><th>Invite</th><th></th></tr></thead>
+        <thead><tr><th>Person</th><th>Role</th><th>Discipline</th><th>Status</th><th title="Documents this person is asked to upload">Pre-work</th><th>Invite</th><th></th></tr></thead>
         <tbody>
           ${owner && html`<tr key=${owner.id}>
             <td><div class="row"><${Avatar} name=${owner.name} color=${owner.color} /><div><b>${owner.name || '(no name)'}</b><div class="muted small">${owner.email}</div></div></div></td>
             <td><span class="pill pill-facilitator">Facilitator</span> <span class="muted small">Owner</span></td>
-            <td><span class="muted">—</span></td><td></td>
+            <td><span class="muted">—</span></td>
             <td><span class="pill pill-live">Joined</span></td><td></td>
             <td><span class="muted small">Signed in with an account</span></td><td></td>
           </tr>`}
           ${people.map((m) => { const link = data.invites[m.id] ? inviteUrl(data.invites[m.id]) : ''; return html`
             <tr key=${m.id}>
               <td><div class="row"><${Avatar} name=${m.name} color=${m.color} /><div><div><b>${m.name || '(no name)'}</b>${m.is_synthetic && html` <span class="pill pill-ai" title="Synthetic participant generated by AI">AI</span>`}</div><div class="muted small persona" title=${m.persona || ''}>${m.is_synthetic ? m.persona : m.email}</div></div></div></td>
-              <td>${m.is_synthetic ? html`<span class="muted">Participant</span>` : html`<select value=${m.role} onChange=${(e) => backend.updateMember(m.id, { role: e.target.value, discipline: e.target.value === 'participant' ? m.discipline || 'design' : null, ...(e.target.value === 'facilitator' ? { is_decider: false } : {}) })}>
-                ${roleOptions}</select>`}</td>
+              <td><select class=${cx(m.is_decider && 'select-decider')} value=${roleOf(m)} onChange=${(e) => setRole(m, e.target.value)}>
+                ${m.is_synthetic ? synthRoleOptions : roleOptions}</select></td>
               <td>${m.role === 'participant' ? html`<select value=${m.discipline || ''} onChange=${(e) => backend.updateMember(m.id, { discipline: e.target.value })}>
                 ${Object.entries(DISCIPLINES).map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}</select>` : html`<span class="muted">—</span>`}</td>
-              <td>${m.role !== 'facilitator' && html`<input type="radio" name="decider" checked=${m.is_decider} onChange=${() => backend.updateMember(m.id, { is_decider: true })} aria-label=${'Make ' + m.name + ' the Decider'} />`}</td>
               <td>${m.is_synthetic ? html`<span class="pill pill-ai">Synthetic</span>` : m.joined_at ? html`<span class="pill pill-live">Joined</span>` : html`<span class="pill">Invited</span>`}</td>
               <td>${m.is_synthetic ? html`<span class="muted">—</span>` : (() => { const r = requestsFor(m), done = r.filter((d) => d.file_path).length; return html`
                 <button class="btn btn-sm" title="Request documents for this person to upload" onClick=${() => setRequesting(m)}>${r.length ? `Requested ${r.length}` : 'Request docs'}</button>
@@ -272,7 +281,7 @@ function People({ w, data }) {
         <input required placeholder="Full name" value=${form.name} onInput=${(e) => setForm({ ...form, name: e.target.value })} />
         <input type="email" placeholder="Email" value=${form.email} onInput=${(e) => setForm({ ...form, email: e.target.value })} />
         <select value=${form.role} onChange=${(e) => setForm({ ...form, role: e.target.value })}>${roleOptions}</select>
-        ${form.role === 'participant' && html`<select value=${form.discipline} onChange=${(e) => setForm({ ...form, discipline: e.target.value })}>
+        ${hasDiscipline(form.role) && html`<select value=${form.discipline} onChange=${(e) => setForm({ ...form, discipline: e.target.value })}>
           ${Object.entries(DISCIPLINES).map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}</select>`}
         <button class="btn btn-primary">Add</button>
       </form>

@@ -20,7 +20,7 @@ export const cx = (...a) => a.filter(Boolean).join(' ');
 export const DISCIPLINES = { design: 'Product Design', pm: 'Product Management', eng: 'Engineering', researcher: 'UX Research' };
 export const ROLES = { organizer: 'Facilitator', facilitator: 'Facilitator', participant: 'Participant' };
 // How to describe a member's part in the workshop; never throws on an unknown role.
-export const roleLabel = (m) => (m.discipline === 'researcher' ? 'UX researcher' : ROLES[m.role] || 'Participant');
+export const roleLabel = (m) => (m.is_decider ? 'Decider' : m.discipline === 'researcher' ? 'UX researcher' : ROLES[m.role] || 'Participant');
 // Facilitators run the workshop: the workshop's creator (role 'organizer', also
 // the owner) and anyone else given the Facilitator role. They don't sketch or vote.
 // Workshop settings stored in step_state that survive a reset (the rest is live session state).
