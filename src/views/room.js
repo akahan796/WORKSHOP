@@ -22,6 +22,12 @@ function useNow(ms = 1000) {
 
 const mmss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
+// Timer control icons (Material, 24px grid, drawn in the text color).
+const icon = (d) => html`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d=${d} fill="currentColor" /></svg>`;
+const ICON_PLAY = icon('M8 5v14l11-7z');
+const ICON_PAUSE = icon('M6 19h4V5H6v14zm8-14v14h4V5h-4z');
+const ICON_RESET = icon('M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z');
+
 function Timer({ w, step, isOrganizer }) {
   const now = useNow(250);
   const paused = w.step_state.timer_paused_ms;
@@ -43,9 +49,9 @@ function Timer({ w, step, isOrganizer }) {
       <span class="timer-clock" aria-live="polite">${running && left <= 0 ? "Time's up" : mmss(left)}</span>
       ${isOrganizer && html`
         <span class="timer-ctl">
-          ${running ? html`<button class="icon-btn" title="Pause" onClick=${pause}>❚❚</button>` : html`<button class="icon-btn" title="Start timer" onClick=${start}>▶</button>`}
+          ${running ? html`<button class="icon-btn timer-icon" title="Pause" onClick=${pause}>${ICON_PAUSE}</button>` : html`<button class="icon-btn timer-icon" title="Start timer" onClick=${start}>${ICON_PLAY}</button>`}
           <button class="icon-btn" title="Add 1 minute" onClick=${add}>+1</button>
-          <button class="icon-btn" title="Reset" onClick=${reset}>↺</button>
+          <button class="icon-btn timer-icon" title="Reset" onClick=${reset}>${ICON_RESET}</button>
         </span>`}
     </div>`;
 }

@@ -124,7 +124,8 @@ textarea { resize: vertical; }
 .timer-clock { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 16px; min-width: 52px; }
 .timer-on { background: var(--brand-soft); color: var(--brand); } .timer-low { background: var(--warn-soft); color: #7A5A00; }
 .timer-up { background: #FDE7E7; color: var(--danger); }
-.timer-ctl { display: flex; }
+.timer-ctl { display: flex; align-items: center; }
+.timer-icon { display: inline-flex; align-items: center; justify-content: center; }
 .toggle { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; cursor: pointer; }
 .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden; }
 .seg button { border: 0; background: #fff; padding: 6px 12px; cursor: pointer; font-weight: 700; font-size: 13px; }
