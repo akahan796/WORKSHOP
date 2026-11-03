@@ -106,7 +106,7 @@ export const DIAMOND = [
   { key: 'discover', title: 'Discover', half: 'Research', caption: 'Insight into the problem', color: '#E8505B' },
   { key: 'define', title: 'Define', half: 'Research', caption: 'Scope down the focus', color: '#F5C55A' },
   { key: 'develop', title: 'Develop', half: 'Design', caption: 'Potential solutions', color: '#4FBE8C' },
-  { key: 'deliver', title: 'Deliver', half: 'Design', caption: 'Solutions that work & feedback', color: '#2F3236' },
+  { key: 'deliver', title: 'Deliver', half: 'Design', caption: 'Solutions that work & feedback', color: '#8B5A3C' },
 ];
 export const STEP_DIAMOND = {
   research: 'discover',
