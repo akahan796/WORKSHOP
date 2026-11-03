@@ -407,6 +407,14 @@ textarea { resize: vertical; }
 .rail-mini-steps .step-num.on { background: var(--brand); color: #fff; }
 .rail-mini-steps .step-num.done { background: var(--ok-soft); color: var(--ok); }
 .rail-mini-people { margin-top: 4px; font-weight: 700; }
+/* Steps inside the double diamond take their stage's color; done steps fade to a tint. */
+.step-num.staged, .rail-mini-steps .step-num.staged { background: var(--sc); color: #fff; }
+.step-num.staged.on, .rail-step.on .step-num.staged, .rail-mini-steps .step-num.staged.on { background: var(--sc); color: #fff; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--sc); }
+.step-num.staged.done, .rail-step.done .step-num.staged, .rail-mini-steps .step-num.staged.done { background: color-mix(in srgb, var(--sc) 22%, #fff); color: color-mix(in srgb, var(--sc) 70%, #000); }
+.rail-stage { display: grid; grid-template-columns: 1fr auto; padding: 12px 6px 4px; border-top: 1px solid var(--line); margin-top: 6px; }
+.rail-stage-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: color-mix(in srgb, var(--sc) 82%, #000); }
+.rail-stage-half { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); align-self: center; }
+.rail-stage-cap { grid-column: 1 / -1; font-size: 11px; color: var(--muted); }
 textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; }
 
 /* Pre-work documents */

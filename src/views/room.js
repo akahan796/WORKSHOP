@@ -2,7 +2,7 @@
 // organizer drives steps and the timer from the control bar.
 import { html, useState, useEffect, cx, DISCIPLINES, ROLES, navigate } from '../lib.js';
 import { backend } from '../backend/index.js';
-import { activeSteps } from '../steps.js';
+import { activeSteps, DIAMOND, STEP_DIAMOND } from '../steps.js';
 import { DiamondMarker } from './diamond.js';
 import { useWorkshop } from '../useWorkshop.js';
 import { Header, Avatar, Empty, Modal } from './ui.js';
@@ -63,6 +63,9 @@ export function RoomView({ wsId, user }) {
   if (!w || (!me && !isOrganizer)) return html`<${Header} user=${user} /><main class="page"><${Empty} title="You don't have access to this workshop">Use the invite link from your email.<//></main>`;
 
   const steps = activeSteps(w);
+  // Each step's double-diamond stage (none for the introduction): colors its circle.
+  const stageOf = (s) => DIAMOND.find((d) => d.key === STEP_DIAMOND[s.key]);
+  const numStyle = (s) => { const d = stageOf(s); return d ? { '--sc': d.color } : null; };
   // The cover comes first: always while the workshop is in draft, and whenever the
   // facilitator goes back to it. It isn't an agenda step.
   const onCover = w.status === 'draft' || w.current_step === 'cover';
@@ -118,7 +121,7 @@ export function RoomView({ wsId, user }) {
           <button class="icon-btn rail-toggle" title="Show agenda and people" aria-expanded="false" onClick=${() => setRail(false)}>»</button>
           <ol class="rail-mini-steps">
             <li><button class=${cx('step-num', onCover && 'on', !onCover && 'done')} title="Cover" disabled=${!isOrganizer || w.status === 'draft'} onClick=${() => goTo(-1)}>◆</button></li>
-            ${steps.map((s, i) => html`<li key=${s.key}><button class=${cx('step-num', i === idx && 'on', i < idx && 'done')} title=${`${i + 1}. ${s.title}`} disabled=${!isOrganizer} onClick=${() => goTo(i)}>${i < idx ? '✓' : i + 1}</button></li>`)}
+            ${steps.map((s, i) => html`<li key=${s.key}><button class=${cx('step-num', stageOf(s) && 'staged', i === idx && 'on', i < idx && 'done')} style=${numStyle(s)} title=${`${i + 1}. ${s.title}${stageOf(s) ? ` (${stageOf(s).title})` : ''}`} disabled=${!isOrganizer} onClick=${() => goTo(i)}>${i < idx ? '✓' : i + 1}</button></li>`)}
           </ol>
           <span class="rail-mini-people muted small" title="People here">${data.members.filter((m) => m.joined_at).length}/${data.members.length}</span>
         </aside>` : html`
@@ -127,12 +130,19 @@ export function RoomView({ wsId, user }) {
           <ol class="rail-steps">
             <li><button class=${cx('rail-step', onCover && 'on', !onCover && 'done')} disabled=${!isOrganizer || w.status === 'draft'} onClick=${() => goTo(-1)}>
               <span class="step-num">◆</span><span class="grow">Cover</span></button></li>
-            ${steps.map((s, i) => html`
+            ${steps.map((s, i) => {
+              const d = stageOf(s);
+              const head = d && (i === 0 || stageOf(steps[i - 1]) !== d);
+              return html`
+              ${head && html`<li key=${'stage-' + d.key + i} class="rail-stage" style=${{ '--sc': d.color }}>
+                <span class="rail-stage-title">${d.title}</span><span class="rail-stage-half">${d.half}</span>
+                <span class="rail-stage-cap">${d.caption}</span></li>`}
               <li key=${s.key}>
                 <button class=${cx('rail-step', i === idx && 'on', i < idx && 'done')} disabled=${!isOrganizer} onClick=${() => goTo(i)}>
-                  <span class="step-num">${i < idx ? '✓' : i + 1}</span><span class="grow">${s.title}</span><span class="muted small">${s.minutes}m</span>
+                  <span class=${cx('step-num', d && 'staged')} style=${numStyle(s)}>${i < idx ? '✓' : i + 1}</span><span class="grow">${s.title}</span><span class="muted small">${s.minutes}m</span>
                 </button>
-              </li>`)}
+              </li>`;
+            })}
           </ol>
           <h4>People <span class="muted">${data.members.filter((m) => m.joined_at).length}/${data.members.length}</span></h4>
           <ul class="rail-people">
