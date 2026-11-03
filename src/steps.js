@@ -79,7 +79,7 @@ export const INTRO_SLIDES = [
   { key: 'project', title: 'About the project' },
   { key: 'overview', title: 'Workshop overview' },
   { key: 'approach', title: 'Our approach' },
-  { key: 'rules', title: 'Ground rules' },
+  { key: 'rules', title: 'Working agreement' },
   { key: 'expectations', title: 'What to expect' },
   { key: 'people', title: "Who's here" },
 ];
