@@ -5,6 +5,7 @@ import { activeSteps, defaultIntro, STICKY_KINDS, introSlideOrder } from '../ste
 import { Avatar, Empty, AiButton } from './ui.js';
 import { synthResearch, synthHmw } from '../ai.js';
 import { PdfSlide } from '../pdf.js';
+import { DoubleDiamond } from './diamond.js';
 
 // ── Shared sticky pieces ──
 export function Sticky({ s, author, mine, onDelete, small, children }) {
@@ -115,6 +116,7 @@ export function IntroStage({ w, data, isOrganizer }) {
     overview: () => html`<div class="islide-cols">
       <p class="islide-text">${intro.overview}</p>
       <ol class="islide-agenda">${steps.map((s) => html`<li key=${s.key}><span>${s.title}</span><span class="muted">${s.minutes} min</span></li>`)}</ol></div>`,
+    approach: () => html`<${DoubleDiamond} steps=${steps} />${intro.approach && html`<p class="islide-text dd-note">${intro.approach}</p>`}`,
     rules: () => html`<ul class="islide-list">${(intro.rules || []).map((r, i) => html`<li key=${i}>${r}</li>`)}</ul>`,
     expectations: () => html`<p class="islide-text">${intro.expectations}</p>`,
     people: () => html`<div class="islide-people">${people.map((m) => html`

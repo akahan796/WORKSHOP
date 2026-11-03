@@ -59,6 +59,7 @@ export function defaultIntro() {
     background: '',
     overview: 'Over this session we will hear the latest UX research, turn what we learn into "How might we" opportunities, prioritize them together, sketch solutions, and leave with one aligned direction and a prototype.',
     rules: DEFAULT_RULES.slice(),
+    approach: 'First we go wide to understand the problem, then narrow it down to one. Then we go wide on ideas, and narrow down to one direction.',
     expectations: 'Come curious. Everyone sketches, and no drawing skills are needed: you will use the AI skills shared before the workshop. Expect short timed activities with breaks in between.',
   };
 }
@@ -77,6 +78,7 @@ export const INTRO_SLIDES = [
   { key: 'organizer', title: 'Your organizer' },
   { key: 'project', title: 'About the project' },
   { key: 'overview', title: 'Workshop overview' },
+  { key: 'approach', title: 'Our approach' },
   { key: 'rules', title: 'Ground rules' },
   { key: 'expectations', title: 'What to expect' },
   { key: 'people', title: "Who's here" },
@@ -85,8 +87,30 @@ export function introSlideOrder(intro) {
   const known = Object.fromEntries(INTRO_SLIDES.map((s) => [s.key, s]));
   const isCustom = (key) => String(key).startsWith('custom-');
   const saved = ((intro && intro.slides) || []).filter((s) => known[s.key] || isCustom(s.key));
-  const missing = INTRO_SLIDES.filter((s) => !saved.some((x) => x.key === s.key)).map((s) => ({ key: s.key, enabled: true }));
-  return [...saved, ...missing].map((s) => isCustom(s.key)
+  // A built-in slide the saved order doesn't list yet (added in a later version)
+  // goes right after the built-in slide before it, or first.
+  const list = saved.slice();
+  INTRO_SLIDES.forEach((s, i) => {
+    if (list.some((x) => x.key === s.key)) return;
+    const prev = i ? list.findIndex((x) => x.key === INTRO_SLIDES[i - 1].key) : -1;
+    list.splice(prev + 1, 0, { key: s.key, enabled: true });
+  });
+  return list.map((s) => isCustom(s.key)
     ? { key: s.key, custom: true, title: s.title || '', text: s.text || '', enabled: s.enabled !== false }
     : { ...known[s.key], enabled: s.enabled !== false });
 }
+
+// The double diamond: every step after the introduction sits in one of its four
+// stages. Research = the first diamond (the problem), Design = the second (the solution).
+export const DIAMOND = [
+  { key: 'discover', title: 'Discover', half: 'Research', caption: 'Insight into the problem', color: '#E8505B' },
+  { key: 'define', title: 'Define', half: 'Research', caption: 'Scope down the focus', color: '#F5C55A' },
+  { key: 'develop', title: 'Develop', half: 'Design', caption: 'Potential solutions', color: '#4FBE8C' },
+  { key: 'deliver', title: 'Deliver', half: 'Design', caption: 'Solutions that work & feedback', color: '#2F3236' },
+];
+export const STEP_DIAMOND = {
+  research: 'discover',
+  hmw: 'define', grid: 'define', vote_hmw: 'define',
+  crazy8: 'develop', share8: 'develop', solution: 'develop', review: 'develop',
+  vote_solution: 'deliver', flow: 'deliver', prototype: 'deliver', design_review: 'deliver',
+};

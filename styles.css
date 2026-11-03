@@ -366,6 +366,21 @@ textarea { resize: vertical; }
 .islide-people { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2cqw 3cqw; font-size: .8em; }
 .islide-person { display: flex; align-items: center; gap: 1.2cqw; } .islide-person.absent { opacity: .45; }
 .islide-pre { white-space: pre-line; }
+/* Double diamond ("Our approach" slide and the room marker) */
+.dd { width: 84cqw; margin: -2.5cqw auto 0; }
+.dd-svg { display: block; width: 100%; height: auto; font-family: Arial, sans-serif; font-weight: 700; }
+.dd-tri { fill: #fff; font-size: 22px; }
+.dd-end { fill: #2F3236; font-size: 30px; }
+.dd-mid { fill: #E5A92B; font-size: 22px; }
+.dd-half { font-size: 26px; }
+.dd-cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1cqw; padding: 0 14%; margin-top: .6cqw; font-size: 1.45cqw; line-height: 1.25; }
+.dd-col { display: flex; flex-direction: column; gap: .35cqw; }
+.dd-cap { color: var(--muted); text-transform: uppercase; font-weight: 700; font-size: .85em; letter-spacing: .03em; margin-bottom: .2cqw; }
+.dd-step { border-left: .35cqw solid; padding-left: .5cqw; }
+.dd-note { font-size: .62em; max-width: none; text-align: center; margin: 1.2cqw auto 0; }
+.dd-marker { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.dd-marker svg { width: 44px; height: 20px; }
+@media (max-width: 1280px) { .dd-marker-label { display: none; } }
 
 /* Setup → Introduction: draggable, expandable slide tiles */
 .slide-tiles { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }

@@ -94,6 +94,7 @@ function SlideFields({ s, intro, save }) {
   if (s.key === 'organizer') return html`<${Field} label="About me (organizer intro)" hint="Who you are and your role in this workshop. If you assign a facilitator in People & invites, the slide shows them as the organizer, with your name in this text replaced by theirs."><${SaveOnBlur} multiline value=${intro.welcome} onSave=${set('welcome')} /><//>`;
   if (s.key === 'project') return html`<${Field} label="Project background" hint="The problem space and why we're here."><${SaveOnBlur} multiline rows="4" value=${intro.background} onSave=${set('background')} /><//>`;
   if (s.key === 'overview') return html`<${Field} label="Workshop overview" hint="The agenda from the Agenda tab is listed beside it."><${SaveOnBlur} multiline value=${intro.overview} onSave=${set('overview')} /><//>`;
+  if (s.key === 'approach') return html`<${Field} label="Our approach" hint="Shown under the double diamond. The diagram lists the steps from the Agenda tab under Discover, Define, Develop and Deliver."><${SaveOnBlur} multiline value=${intro.approach} onSave=${set('approach')} /><//>`;
   if (s.key === 'rules') return html`<${Field} label="Ground rules" hint="One rule per line.">
     <${SaveOnBlur} multiline rows="6" value=${(intro.rules || []).join('\n')} onSave=${(v) => save({ rules: v.split('\n').map((x) => x.trim()).filter(Boolean) })} /><//>`;
   if (s.key === 'expectations') return html`<${Field} label="What to expect"><${SaveOnBlur} multiline value=${intro.expectations} onSave=${set('expectations')} /><//>`;

@@ -3,6 +3,7 @@
 import { html, useState, useEffect, cx, DISCIPLINES, ROLES, navigate } from '../lib.js';
 import { backend } from '../backend/index.js';
 import { activeSteps } from '../steps.js';
+import { DiamondMarker } from './diamond.js';
 import { useWorkshop } from '../useWorkshop.js';
 import { Header, Avatar, Empty, Modal } from './ui.js';
 import { ResearchManager } from './research.js';
@@ -103,6 +104,7 @@ export function RoomView({ wsId, user }) {
           <b>${w.title}</b>
           <span class="muted">${onCover ? 'Cover' : `Step ${idx + 1} of ${steps.length} · ${step.title}`}</span>
         </div>
+        ${!onCover && html`<${DiamondMarker} stepKey=${step.key} />`}
         ${isOrganizer && isSimulated(w) && backend.mode !== 'demo' && html`<span class="pill pill-ai" title="AI results come from the built-in stand-in (Setup → Details → AI mode)">Simulated AI</span>`}
         ${!onCover && html`<${Timer} w=${w} step=${step} isOrganizer=${isOrganizer} />`}
       <//>
