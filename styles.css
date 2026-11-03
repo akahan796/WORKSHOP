@@ -190,6 +190,7 @@ textarea { resize: vertical; }
 }
 .source-quote { background: var(--brand-soft); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; font-size: 13px; }
 .pill-ai { background: #F1E9FF; color: var(--purple); }
+.person-text { min-width: 0; }
 .persona { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-btn { border-color: #D9C7FF; color: var(--purple); }
 .ai-btn:hover { background: #F7F2FF; }
