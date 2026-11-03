@@ -1,5 +1,5 @@
 // Guest invite landing page: confirm name (and discipline), then enter the room.
-import { html, useState, useEffect, navigate, DISCIPLINES, ROLES } from '../lib.js';
+import { html, useState, useEffect, navigate, DISCIPLINE_OPTIONS, ROLES } from '../lib.js';
 import { backend } from '../backend/index.js';
 import { Header, Field, Empty } from './ui.js';
 
@@ -39,7 +39,7 @@ export function JoinView({ token, user }) {
         ${invite.member_role === 'participant' && html`
           <${Field} label="Your discipline">
             <select value=${discipline} onChange=${(e) => setDiscipline(e.target.value)}>
-              ${Object.entries(DISCIPLINES).map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}
+              ${DISCIPLINE_OPTIONS.map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}
             </select>
           <//>`}
         ${error && html`<p class="error">${error}</p>`}

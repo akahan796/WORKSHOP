@@ -1,5 +1,5 @@
 // Organizer workshop setup: details, introduction, agenda, people & invites, research.
-import { html, useState, navigate, nextColor, inviteUrl, DISCIPLINES, AI_DISCIPLINE, roleLabel, cx, fmtDate, uid } from '../lib.js';
+import { html, useState, navigate, nextColor, inviteUrl, DISCIPLINES, DISCIPLINE_OPTIONS, AI_DISCIPLINE, roleLabel, cx, fmtDate, uid } from '../lib.js';
 import { backend } from '../backend/index.js';
 import { STEPS, BUILT_PHASE, defaultAgenda, defaultIntro, introSlideOrder } from '../steps.js';
 import { useWorkshop } from '../useWorkshop.js';
@@ -264,7 +264,7 @@ function People({ w, data }) {
               <td><select class=${cx(m.is_decider && 'select-decider')} value=${roleOf(m)} onChange=${(e) => setRole(m, e.target.value)}>
                 ${m.is_synthetic ? synthRoleOptions : roleOptions}</select></td>
               <td>${m.is_synthetic ? html`<span title="AI participants are always End Users">${DISCIPLINES[AI_DISCIPLINE]}</span>` : m.role === 'participant' ? html`<select value=${m.discipline || ''} onChange=${(e) => backend.updateMember(m.id, { discipline: e.target.value })}>
-                ${Object.entries(DISCIPLINES).map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}</select>` : html`<span class="muted">—</span>`}</td>
+                ${DISCIPLINE_OPTIONS.map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}</select>` : html`<span class="muted">—</span>`}</td>
               <td>${m.is_synthetic ? html`<span class="pill pill-ai">Synthetic</span>` : m.joined_at ? html`<span class="pill pill-live">Joined</span>` : html`<span class="pill">Invited</span>`}</td>
               <td>${m.is_synthetic ? html`<span class="muted">—</span>` : (() => { const r = requestsFor(m), done = r.filter((d) => d.file_path).length; return html`
                 <button class="btn btn-sm" title="Request documents for this person to upload" onClick=${() => setRequesting(m)}>${r.length ? `Requested ${r.length}` : 'Request docs'}</button>
@@ -283,7 +283,7 @@ function People({ w, data }) {
         <input type="email" placeholder="Email" value=${form.email} onInput=${(e) => setForm({ ...form, email: e.target.value })} />
         <select value=${form.role} onChange=${(e) => setForm({ ...form, role: e.target.value })}>${roleOptions}</select>
         ${hasDiscipline(form.role) && html`<select value=${form.discipline} onChange=${(e) => setForm({ ...form, discipline: e.target.value })}>
-          ${Object.entries(DISCIPLINES).map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}</select>`}
+          ${DISCIPLINE_OPTIONS.map(([k, v]) => html`<option key=${k} value=${k}>${v}</option>`)}</select>`}
         <button class="btn btn-primary">Add</button>
       </form>
       <div class="row"><button class="btn" onClick=${() => setShowSynth(true)}>✨ Generate synthetic participants</button><span class="muted small">AI participants fill empty seats: they add stickies, HMWs and votes when a facilitator asks them to. One can be the Decider.</span></div>

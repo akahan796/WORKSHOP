@@ -18,6 +18,8 @@ export const token = () => (uid() + uid()).replace(/-/g, '');
 export const cx = (...a) => a.filter(Boolean).join(' ');
 
 export const DISCIPLINES = { design: 'Product Design', pm: 'Product Management', eng: 'Engineering', researcher: 'UX Research', docs: 'Documentation', agile: 'Agile Delivery Lead', enduser: 'End User', growth: 'Product Growth', leadership: 'Leadership' };
+// Discipline [key, label] pairs in alphabetical order, for dropdowns.
+export const DISCIPLINE_OPTIONS = Object.entries(DISCIPLINES).sort((a, b) => a[1].localeCompare(b[1]));
 // AI (synthetic) participants are always end users.
 export const AI_DISCIPLINE = 'enduser';
 export const ROLES = { organizer: 'Facilitator', facilitator: 'Facilitator', participant: 'Participant' };
