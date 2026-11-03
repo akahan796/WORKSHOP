@@ -8,7 +8,7 @@ export function Header({ user, children, menu = [] }) {
     <header class="app-header">
       <a class="brand" href="#/" onClick=${(e) => { if (!user || !user.isStaff) e.preventDefault(); }}>
         <img src="brandmark.svg" alt="" />
-        <span>Workshop <b>AI</b></span>
+        <span>Product Innovation <b>Workshop</b></span>
       </a>
       ${backend.mode === 'demo' && html`<span class="pill pill-demo" title="No Supabase configured: data is stored in this browser only">Demo mode</span>`}
       <div class="header-mid">${children}</div>

@@ -14,7 +14,7 @@ import { RoomView } from './views/room.js';
 import { Header } from './views/ui.js';
 import { SummaryView } from './views/summary.js';
 
-console.log('Workshop AI build 2026-11-03-e · backend:', backend.mode);
+console.log('Product Innovation Workshop build 2026-11-03-f · backend:', backend.mode);
 
 function useHash() {
   const [hash, setHash] = useState(location.hash.slice(1) || '/');
