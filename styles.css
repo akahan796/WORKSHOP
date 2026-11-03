@@ -112,6 +112,7 @@ textarea { resize: vertical; }
 .rail h4 { margin: 12px 4px 4px; text-transform: uppercase; letter-spacing: .05em; font-size: 11px; color: var(--muted); }
 .rail-steps { list-style: none; padding: 0; margin: 0; }
 .rail-step { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; border: 0; background: none; padding: 6px; border-radius: 6px; cursor: pointer; }
+.rail-step .grow { font-size: 13px; line-height: 1.35; }
 .rail-step:disabled { cursor: default; } .rail-step:not(:disabled):hover { background: #F4F5F7; }
 .rail-step.on { background: var(--brand-soft); font-weight: 700; } .rail-step.on .step-num { background: var(--brand); color: #fff; }
 .rail-step.done .step-num { background: var(--ok-soft); color: var(--ok); }
