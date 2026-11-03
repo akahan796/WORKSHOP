@@ -191,6 +191,9 @@ textarea { resize: vertical; }
 .source-quote { background: var(--brand-soft); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; font-size: 13px; }
 .pill-ai { background: #F1E9FF; color: var(--purple); }
 .person-text { min-width: 0; }
+.persona-line { display: flex; align-items: baseline; gap: 6px; max-width: 400px; } .persona-line .persona { min-width: 0; }
+.more-link { color: var(--brand); font-weight: 700; text-decoration: none; white-space: nowrap; cursor: help; } .more-link:hover, .more-link:focus { text-decoration: underline; }
+.more-tip-box { position: fixed; z-index: 1000; background: #2B2D31; color: #fff; font-size: 13px; line-height: 1.45; font-weight: 400; padding: 10px 12px; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,.2); white-space: normal; pointer-events: none; }
 .persona { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-btn { border-color: #D9C7FF; color: var(--purple); }
 .ai-btn:hover { background: #F7F2FF; }
@@ -435,5 +438,13 @@ textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-h
 .btn.danger { color: var(--danger); }
 .banner-prework { display: flex; align-items: center; gap: 12px; background: var(--brand-soft); color: var(--text, #222); }
 .table-wrap { overflow-x: auto; }
+/* People table: the Person column takes the space left over and its text
+   truncates to fit, so the table fits its card without scrolling sideways. */
+.people-table .cell-person { width: 100%; max-width: 0; }
+.people-table .cell-person .row > :first-child { flex: none; }
+.people-table .persona-line, .people-table .persona { max-width: none; }
+.people-table td { white-space: nowrap; } .people-table td.wrap { white-space: normal; }
+.invite-actions { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+.invite-actions .btn { text-align: center; }
 .prework-req-desc { font-weight: 400; }
 .select-decider { color: var(--purple); font-weight: 700; border-color: #D9C7FF; }

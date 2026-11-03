@@ -110,3 +110,19 @@ export function AiButton({ label, run, disabled, title, busyHint }) {
       ${msg && msg.ok && html`<span class="muted small">${msg.ok}</span>`}
     </span>`;
 }
+
+// A "More" link that shows `text` in a tooltip on hover or keyboard focus. The tip
+// is fixed to the window so a scrolling container (e.g. a wide table) can't clip it.
+export function MoreTip({ text, label = 'More' }) {
+  const [pos, setPos] = useState(null);
+  const show = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const width = Math.min(360, innerWidth - 32);
+    setPos({ left: Math.max(16, Math.min(r.left, innerWidth - width - 16)), top: r.bottom + 6, width });
+  };
+  return html`<span class="more-tip">
+    <a href="#" class="more-link" aria-label=${text} onClick=${(e) => e.preventDefault()}
+      onMouseEnter=${show} onMouseLeave=${() => setPos(null)} onFocus=${show} onBlur=${() => setPos(null)}>${label}</a>
+    ${pos && html`<span class="more-tip-box" role="tooltip" style=${pos}>${text}</span>`}
+  </span>`;
+}
