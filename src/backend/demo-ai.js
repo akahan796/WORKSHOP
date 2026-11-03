@@ -3,17 +3,15 @@
 // Same tasks and result shapes, produced by simple deterministic rules, so the
 // whole flow can be run without an AI API. Results are labeled as simulated.
 
-const DISC = { design: 'Product Design', pm: 'Product Management', eng: 'Engineering' };
-const NAMES = {
-  design: ['Maya Ortiz', 'Jonah Weiss', 'Leila Haddad', 'Sam Okafor'],
-  pm: ['Rachel Kim', 'Owen Patel', 'Grace Liu', 'Daniel Moreau'],
-  eng: ['Victor Novak', 'Aisha Rahman', 'Ben Carter', 'Nadia Petrova'],
-};
-const PERSONAS = {
-  design: (p) => `Senior product designer on ${p}. Cares about reducing clicks and making status obvious at a glance; pushes for patterns that already exist in the OneStream design system.`,
-  pm: (p) => `Product manager for ${p}. Thinks in terms of customer outcomes and adoption; wants to know which problems block the most users at month-end.`,
-  eng: (p) => `Engineer on the ${p} platform team. Pragmatic about data model and performance limits; flags where an idea needs new integrations versus reusing what exists.`,
-};
+// Synthetic participants are always end users.
+const END_USERS = [
+  ['Maya Ortiz', (p) => `Senior accountant at a mid-size manufacturer who uses ${p} every month-end. Wants to see what's waiting on them without digging; loses time chasing approvers by email.`],
+  ['Owen Patel', (p) => `Corporate controller at a healthcare group, signs off in ${p}. Cares about audit trail and knowing the close is on track; impatient with screens that hide status.`],
+  ['Aisha Rahman', (p) => `FP&A analyst at a retail chain who relies on ${p} data being final. Often blocked waiting on others; wants clear handoffs and fewer surprises late in the cycle.`],
+  ['Daniel Moreau', (p) => `Shared-services team lead processing high volumes in ${p}. Thinks in bulk actions and keyboard speed; anything one-at-a-time is a pain at scale.`],
+  ['Grace Liu', (p) => `Finance systems admin at a software company who configures ${p} for their users. Fields the "where is my entry?" questions; wants self-serve answers for their team.`],
+  ['Victor Novak', (p) => `Regional finance director who checks ${p} mostly on approvals. Needs the summary fast and trusts the numbers only when the context is right there.`],
+];
 
 function hash(s) { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0) / 4294967295; }
 
@@ -67,13 +65,11 @@ const tasks = {
 
   synth_participants(db, ws, body) {
     const used = new Set(db.members.filter((m) => m.workshop_id === ws.id).map((m) => m.name));
-    const disc = (body.disciplines && body.disciplines.length ? body.disciplines : ['design', 'pm', 'eng']);
+    const free = END_USERS.filter(([n]) => !used.has(n));
     const out = [];
     for (let i = 0; i < (body.count || 3); i++) {
-      const d = disc[i % disc.length];
-      const name = NAMES[d].find((n) => !used.has(n)) || `${DISC[d]} Guest ${i + 1}`;
-      used.add(name);
-      out.push({ name, discipline: d, persona: PERSONAS[d](ws.project || 'the product') });
+      const [name, persona] = free[i] || [`End User ${i + 1}`, END_USERS[i % END_USERS.length][1]];
+      out.push({ name, discipline: 'enduser', persona: persona(ws.project || 'the product') });
     }
     return { participants: out };
   },

@@ -44,7 +44,7 @@ create table members (
   name         text not null default '',
   email        text not null default '',
   role         text not null check (role in ('organizer','facilitator','participant')),
-  discipline   text check (discipline in ('design','pm','eng','researcher')),
+  discipline   text check (discipline in ('design','pm','eng','researcher','docs','agile','enduser','growth','leadership')),
   color        text not null default '#FFE27A',
   is_decider   boolean not null default false,
   is_synthetic boolean not null default false,

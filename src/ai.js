@@ -2,7 +2,7 @@
 // function, or the demo stand-in) for plain results, then writes them as normal
 // workshop data, so everyone's screen updates live.
 import { backend } from './backend/index.js';
-import { nextColor, hmwText, uid, facilitates } from './lib.js';
+import { nextColor, hmwText, uid, facilitates, AI_DISCIPLINE } from './lib.js';
 import { demoAi } from './backend/demo-ai.js';
 import { skillFor } from './skills.js';
 
@@ -33,12 +33,12 @@ export function quadrantOf(grid) {
   return hi ? (easy ? 'quick' : 'big') : (easy ? 'fill' : 'pit');
 }
 
-export async function generateSynthetic(w, members, { count, disciplines, guidance }) {
-  const { participants } = await runAi(w, 'synth_participants', { count, disciplines, guidance });
+export async function generateSynthetic(w, members, { count, guidance }) {
+  const { participants } = await runAi(w, 'synth_participants', { count, guidance });
   const all = members.slice();
   for (const p of participants) {
     all.push(await backend.addMember(w.id, {
-      name: p.name, email: '', role: 'participant', discipline: p.discipline, persona: p.persona,
+      name: p.name, email: '', role: 'participant', discipline: AI_DISCIPLINE, persona: p.persona,
       is_synthetic: true, joined_at: new Date().toISOString(), color: nextColor(all),
     }));
   }

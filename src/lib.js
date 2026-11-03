@@ -17,7 +17,9 @@ export const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.
 export const token = () => (uid() + uid()).replace(/-/g, '');
 export const cx = (...a) => a.filter(Boolean).join(' ');
 
-export const DISCIPLINES = { design: 'Product Design', pm: 'Product Management', eng: 'Engineering', researcher: 'UX Research' };
+export const DISCIPLINES = { design: 'Product Design', pm: 'Product Management', eng: 'Engineering', researcher: 'UX Research', docs: 'Documentation', agile: 'Agile Delivery Lead', enduser: 'End User', growth: 'Product Growth', leadership: 'Leadership' };
+// AI (synthetic) participants are always end users.
+export const AI_DISCIPLINE = 'enduser';
 export const ROLES = { organizer: 'Facilitator', facilitator: 'Facilitator', participant: 'Participant' };
 // How to describe a member's part in the workshop; never throws on an unknown role.
 export const roleLabel = (m) => (m.is_decider ? 'Decider' : m.discipline === 'researcher' ? 'UX researcher' : ROLES[m.role] || 'Participant');

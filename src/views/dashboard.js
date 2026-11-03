@@ -55,7 +55,7 @@ export async function createDemoWorkshop(user, opts, onProgress = () => {}) {
   if (aiCount > 0) {
     onProgress(`Adding ${aiCount} AI participant${aiCount > 1 ? 's' : ''}…`);
     const ctx = { ...ws, step_state: asked && !notice ? ws.step_state : simulated.step_state };
-    await generateSynthetic(ctx, members, { count: aiCount, disciplines: ['design', 'pm', 'eng'] });
+    await generateSynthetic(ctx, members, { count: aiCount });
   }
   return { ws, notice };
 }

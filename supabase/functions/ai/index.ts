@@ -46,7 +46,7 @@ const CORS = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
-const DISCIPLINES: Record<string, string> = { design: "Product Design", pm: "Product Management", eng: "Engineering", researcher: "UX Research" };
+const DISCIPLINES: Record<string, string> = { design: "Product Design", pm: "Product Management", eng: "Engineering", researcher: "UX Research", docs: "Documentation", agile: "Agile Delivery Lead", enduser: "End User", growth: "Product Growth", leadership: "Leadership" };
 
 // One Claude call that must answer through a single strict tool. Forced
 // tool_choice isn't available on Claude Opus 5.5, so the prompt names the tool
@@ -270,25 +270,24 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
 
   async synth_participants(sb, ws, body) {
     const count = Math.max(1, Math.min(8, Number(body.count) || 3));
-    const disciplines: string[] = (body.disciplines || ["design", "pm", "eng"]).filter((d: string) => DISCIPLINES[d]);
     const { data: existing } = await sb.from("members").select("name").eq("workshop_id", ws.id);
     const ctx = await workshopContext(sb, ws, false);
     const out = await callTool(
-      SYSTEM + " You create realistic synthetic workshop participants: OneStream colleagues who will contribute stickies, HMWs and votes alongside the real team.",
-      [{ type: "text", text: `${ctx.text}\n\nCreate ${count} synthetic participant(s). Spread them across these disciplines: ${disciplines.map((d) => `${d} (${DISCIPLINES[d]})`).join(", ")}.\nFor each, give a realistic full name (not any of: ${(existing || []).map((e: any) => e.name).join(", ") || "none"}), a discipline, and a 2–3 sentence persona: their role, what they care about, and the perspective they bring to this subject.${body.guidance ? `\nOrganizer guidance: ${body.guidance}` : ""}` }],
+      SYSTEM + " You create realistic synthetic workshop participants: end users of the product (people at OneStream customer organizations who use it day to day) who will contribute stickies, HMWs and votes alongside the real team.",
+      [{ type: "text", text: `${ctx.text}\n\nCreate ${count} synthetic participant(s). All of them are end users of the product, with varied job titles, seniority and companies.\nFor each, give a realistic full name (not any of: ${(existing || []).map((e: any) => e.name).join(", ") || "none"}) and a 2–3 sentence persona: their job, how they use the product, what frustrates them, and the perspective they bring to this subject.${body.guidance ? `\nOrganizer guidance: ${body.guidance}` : ""}` }],
       {
         name: "create_participants",
         description: "Create the synthetic participants.",
         input_schema: {
           type: "object", additionalProperties: false, required: ["participants"],
           properties: { participants: { type: "array", items: {
-            type: "object", additionalProperties: false, required: ["name", "discipline", "persona"],
-            properties: { name: { type: "string" }, discipline: { type: "string", enum: disciplines }, persona: { type: "string" } },
+            type: "object", additionalProperties: false, required: ["name", "persona"],
+            properties: { name: { type: "string" }, persona: { type: "string" } },
           } } },
         },
       },
     );
-    return { participants: (out.participants || []).slice(0, count) };
+    return { participants: (out.participants || []).slice(0, count).map((x: any) => ({ ...x, discipline: "enduser" })) };
   },
 
   async synth_research(sb, ws) {
