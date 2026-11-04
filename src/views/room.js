@@ -111,8 +111,8 @@ export function RoomView({ wsId, user }) {
         { label: 'Workshop summary', onClick: () => navigate(`/w/${w.id}/summary`) },
       ]}>
         <div class="room-title">
-          <b>${w.title}</b>
-          <span class="muted">${onCover ? 'Cover' : `Step ${idx + 1} of ${steps.length} · ${step.title}`}</span>
+          <b class="room-title-name" title=${w.title}>${w.title}</b>
+          <span class="room-title-step">${onCover ? 'Cover' : html`<span class="room-step-count">Step ${idx + 1} of ${steps.length}</span><span class="room-step-name">${step.title}</span>`}</span>
         </div>
         ${!onCover && html`<${DiamondMarker} stepKey=${step.key} />`}
         ${isOrganizer && isSimulated(w) && backend.mode !== 'demo' && html`<span class="pill pill-ai" title="AI results come from the built-in stand-in (Setup → Details → AI mode)">Simulated AI</span>`}
