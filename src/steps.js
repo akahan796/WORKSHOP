@@ -40,7 +40,7 @@ export const STEP_BY_KEY = Object.fromEntries(STEPS.map((s) => [s.key, s]));
 // Crazy 8s is always 8 minutes: one per sketch.
 export const DAY_MINUTES = 300;
 export const DURATIONS = [
-  { key: 'mini', name: 'Mini', days: 1, blurb: 'The essentials in one day. Skips the impact/effort grid and the sketch review, and keeps every exercise tight.' },
+  { key: 'mini', name: 'Mini', days: 1, blurb: 'The essentials in one day. Skips the sketch review and keeps every exercise tight, with a shorter user flow and design review.' },
   { key: 'focused', name: 'Focused', days: 1.5, blurb: 'Every step, at a brisk pace. A good fit when the problem is already well understood.' },
   { key: 'standard', name: 'Standard', days: 2, blurb: 'The full workshop with room to discuss: deeper research share-outs and more time to sketch.' },
   { key: 'extended', name: 'Extended', days: 2.5, blurb: 'More time for Q&A, sharing and the user flow, for bigger groups or a fuzzier problem.' },
@@ -51,16 +51,16 @@ const DURATION_MINUTES = {
   intro:         [15, 15, 20, 30, 30],
   research:      [45, 60, 90, 120, 150],
   hmw:           [20, 30, 40, 45, 60],
-  grid:          [0, 20, 30, 40, 45],
+  grid:          [15, 20, 30, 40, 45],
   vote_hmw:      [15, 15, 20, 25, 30],
   crazy8:        [8, 8, 8, 8, 8],
   share8:        [25, 30, 45, 60, 60],
   solution:      [45, 60, 90, 120, 150],
   review:        [0, 20, 30, 40, 45],
   vote_solution: [15, 20, 30, 30, 40],
-  flow:          [40, 60, 75, 90, 120],
+  flow:          [30, 60, 75, 90, 120],
   prototype:     [30, 45, 60, 75, 75],
-  design_review: [30, 45, 60, 75, 90],
+  design_review: [25, 45, 60, 75, 90],
 };
 export const DEFAULT_DURATION = 2; // Standard
 
