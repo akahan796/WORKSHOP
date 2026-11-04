@@ -15,7 +15,32 @@ const END_USERS = [
 
 function hash(s) { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0) / 4294967295; }
 
+// Warm-up circle doodles for simulated AI: a few shapes picked by keyword.
+// The circle is at (100, 100), r 76, in a 200×200 box.
+const ln = (x1, y1, x2, y2, c, w = 4) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}" stroke-linecap="round"/>`;
+const rays = (n, r1, r2, c, w) => Array.from({ length: n }, (_, i) => { const a = (i / n) * Math.PI * 2; return ln(100 + Math.cos(a) * r1, 100 + Math.sin(a) * r1, 100 + Math.cos(a) * r2, 100 + Math.sin(a) * r2, c, w); }).join('');
+const DOODLES = [
+  [/flower|daisy|sunflower|petal/, () => Array.from({ length: 8 }, (_, i) => `<ellipse cx="100" cy="52" rx="14" ry="26" fill="#F5C55A" stroke="#B98A12" stroke-width="2" transform="rotate(${i * 45} 100 100)"/>`).join('') + '<circle cx="100" cy="100" r="22" fill="#8B5A3C"/>' + ln(100, 176, 100, 198, '#4FBE8C', 5)],
+  [/clock|watch|time/, () => rays(12, 62, 70, '#101828', 3) + ln(100, 100, 100, 52, '#101828', 5) + ln(100, 100, 132, 100, '#101828', 4) + '<circle cx="100" cy="100" r="5" fill="#E8505B"/>'],
+  [/wheel|tire|bike|bicycle/, () => '<circle cx="100" cy="100" r="64" fill="none" stroke="#101828" stroke-width="6"/>' + rays(10, 12, 64, '#667085', 2) + '<circle cx="100" cy="100" r="12" fill="#344054"/>'],
+  [/balloon/, () => '<circle cx="100" cy="100" r="74" fill="#E8505B" opacity=".85"/><path d="M92 176 L108 176 L100 188 Z" fill="#B42318"/><path d="M100 188 C 90 194, 110 196, 100 200" stroke="#667085" stroke-width="2" fill="none"/><ellipse cx="72" cy="70" rx="10" ry="18" fill="#fff" opacity=".6"/>'],
+  [/sun/, () => '<circle cx="100" cy="100" r="74" fill="#F5C55A"/>' + rays(12, 80, 96, '#F79009', 4) + '<circle cx="78" cy="88" r="6" fill="#101828"/><circle cx="122" cy="88" r="6" fill="#101828"/><path d="M76 120 Q100 142 124 120" stroke="#101828" stroke-width="4" fill="none" stroke-linecap="round"/>'],
+  [/pizza|pie/, () => '<circle cx="100" cy="100" r="74" fill="#F5C55A"/><circle cx="100" cy="100" r="62" fill="#E8505B" opacity=".8"/>' + rays(6, 0, 62, '#B98A12', 3) + [[80, 70], [125, 80], [70, 120], [118, 128], [100, 100]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="8" fill="#B42318"/>`).join('')],
+  [/planet|saturn|world|earth|globe/, () => '<circle cx="100" cy="100" r="74" fill="#0A5DFF" opacity=".75"/><path d="M60 70 Q80 60 90 80 T120 90 Q130 110 110 120 Q90 130 80 110 Z" fill="#4FBE8C"/><ellipse cx="100" cy="100" rx="98" ry="22" fill="none" stroke="#F79009" stroke-width="5" transform="rotate(-18 100 100)"/>'],
+  [/donut|doughnut|bagel/, () => '<circle cx="100" cy="100" r="74" fill="#C08457"/><circle cx="100" cy="100" r="62" fill="#F4C0D1"/><circle cx="100" cy="100" r="22" fill="#fff" stroke="#8B5A3C" stroke-width="3"/>' + [[70, 70, 20], [130, 80, -30], [80, 135, 60], [128, 128, 10], [100, 58, 80]].map(([x, y, a]) => `<rect x="${x - 6}" y="${y - 2}" width="12" height="4" rx="2" fill="#0A5DFF" transform="rotate(${a} ${x} ${y})"/>`).join('')],
+  [/ball|soccer|football|basket/, () => '<circle cx="100" cy="100" r="74" fill="#F79009"/>' + ln(26, 100, 174, 100, '#101828', 3) + ln(100, 26, 100, 174, '#101828', 3) + '<path d="M48 48 Q100 100 48 152 M152 48 Q100 100 152 152" stroke="#101828" stroke-width="3" fill="none"/>'],
+  [/eye/, () => '<circle cx="100" cy="100" r="40" fill="#4FBE8C"/><circle cx="100" cy="100" r="18" fill="#101828"/><circle cx="92" cy="92" r="6" fill="#fff"/>' + rays(9, 78, 92, '#101828', 3)],
+];
+const FACE = () => '<circle cx="76" cy="86" r="8" fill="#101828"/><circle cx="124" cy="86" r="8" fill="#101828"/><path d="M70 122 Q100 150 130 122" stroke="#101828" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="60" cy="112" r="9" fill="#F4C0D1"/><circle cx="140" cy="112" r="9" fill="#F4C0D1"/>';
+
 const tasks = {
+  warmup_circle(db, ws, body) {
+    const idea = String(body.idea || '').trim().slice(0, 80);
+    if (!idea) throw new Error('Type what the circle should become first.');
+    const hit = DOODLES.find(([re]) => re.test(idea.toLowerCase()));
+    return { svg: (hit ? hit[1] : FACE)(), title: idea.slice(0, 40) };
+  },
+
   place_grid(db, ws, body) {
     return {
       placements: (body.items || []).map((i) => {

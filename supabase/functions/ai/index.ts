@@ -207,6 +207,9 @@ const skillRules = (skill: unknown) => {
 
 const SYSTEM = "You support a OneStream UX design-thinking workshop. Be concrete, specific to the product and users described, and write like a thoughtful practitioner, not a consultant.";
 
+// Tasks any member of the workshop may run (the rest are for facilitators and admins).
+const PARTICIPANT_TASKS = new Set(["warmup_circle"]);
+
 const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> = {
   async place_grid(sb, ws, body) {
     const items: { id: string; text: string }[] = body.items || [];
@@ -266,6 +269,35 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
       8000, "low", body.__startedAt,
     );
     return out;
+  },
+
+  // Warm-Up Exercise: a participant types what one circle should become, and the
+  // AI adds simple line-drawing elements around the existing circle. Participants
+  // may run this task (see PARTICIPANT_TASKS); the idea is capped at 80 characters.
+  async warmup_circle(_sb, _ws, body) {
+    const idea = String(body.idea || "").trim().slice(0, 80);
+    if (!idea) throw new Error("Type what the circle should become first.");
+    const out = await callTool(
+      "You turn an empty circle into a simple drawing for a creative warm-up game, where people turn circles into as many different things as they can.",
+      [{ type: "text", text: `The canvas is a 200 by 200 SVG viewBox. A circle is already drawn at center (100, 100) with radius 76 (gray outline). Add elements so the circle becomes: "${idea}".
+
+Rules:
+- Use the existing circle as the main shape (a clock face, a wheel rim, a balloon, a flower's center...). Don't redraw it.
+- Style: sketch line art, like a quick pen drawing. Outlines only: fill="none" on every element, one dark ink (stroke="#1D2939"), stroke widths 2.5 to 4, round line caps and joins. Prefer loose hand-drawn paths (gentle curves, slightly uneven lines) over perfect geometric shapes; a few short hatching strokes can suggest shading. No solid fills, no color.
+- Only these elements: path, circle, ellipse, line, polyline, polygon, rect, g. Attributes: d, cx, cy, r, rx, ry, x, y, x1, y1, x2, y2, width, height, points, fill, stroke, stroke-width, stroke-linecap, stroke-linejoin, opacity, transform. No text, no images, no gradients, no ids or styles.
+- Stay inside 0 to 200 on both axes. At most 30 elements.
+Also give a 1 to 4 word title for the drawing.` }],
+      {
+        name: "draw_circle",
+        description: "The SVG elements to add, and a short title.",
+        input_schema: {
+          type: "object", additionalProperties: false, required: ["svg", "title"],
+          properties: { svg: { type: "string", description: "SVG elements only, no <svg> wrapper." }, title: { type: "string" } },
+        },
+      },
+      6000, "low", body.__startedAt,
+    );
+    return { svg: String(out.svg || ""), title: String(out.title || idea).slice(0, 40) };
   },
 
   async synth_participants(sb, ws, body) {
@@ -647,7 +679,7 @@ Deno.serve(async (req) => {
     let allowed = !!ws && !user.is_anonymous;
     if (ws && !allowed) {
       const { data: me } = await sb.from("members").select("role").eq("workshop_id", ws.id).eq("user_id", user.id).maybeSingle();
-      allowed = me?.role === "facilitator";
+      allowed = me?.role === "facilitator" || (!!me && PARTICIPANT_TASKS.has(body.task));
     }
     if (!allowed) return json({ error: "Only this workshop's facilitators can use AI." }, 403);
 

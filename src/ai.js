@@ -216,3 +216,7 @@ export async function synthFeedback(w, proto, flow) {
   for (const f of feedback) await backend.addSticky({ workshop_id: w.id, member_id: f.member_id, step: 'design_review', kind: 'feedback', text: f.text, data: { kind: f.kind, version: proto.version } });
   return `Added ${feedback.length} pieces of feedback.`;
 }
+
+// Warm-Up Exercise: the doodle that turns one circle into the participant's idea.
+// Participants run this one themselves. Returns { svg, title }.
+export const drawCircleIdea = (w, idea) => runAi(w, 'warmup_circle', { idea });

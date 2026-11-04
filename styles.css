@@ -513,3 +513,14 @@ textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-h
 .warmup-thumb img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 8px; cursor: zoom-in; }
 .warmup-remove { position: absolute; top: 4px; right: 4px; background: rgba(255,255,255,.9); }
 .pill-optional { background: var(--brand-soft); color: var(--brand); }
+.warmup-hint { margin: -4px 0 0; width: 100%; max-width: max(var(--board), 560px); }
+.warmup-stage { position: relative; width: 100%; max-width: var(--board); }
+.warmup-stage .warmup-canvas { display: block; max-width: none; }
+.warmup-canvas.picking { cursor: pointer; }
+.idea-prompt { position: absolute; z-index: 5; transform: translate(-50%, 18%); width: 290px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px;
+  box-shadow: 0 12px 16px -4px rgba(16,24,40,.12), 0 4px 6px -2px rgba(16,24,40,.05); }
+.idea-prompt.edge-left { transform: translate(-22%, 18%); } .idea-prompt.edge-right { transform: translate(-78%, 18%); }
+.idea-prompt.edge-bottom { transform: translate(-50%, -112%); }
+.idea-prompt.edge-bottom.edge-left { transform: translate(-22%, -112%); } .idea-prompt.edge-bottom.edge-right { transform: translate(-78%, -112%); }
+.idea-busy { position: absolute; transform: translate(-50%, -50%); background: var(--brand); color: #fff; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 999px; pointer-events: none; animation: idea-pulse 1.2s ease-in-out infinite; }
+@keyframes idea-pulse { 50% { opacity: .55; } }
