@@ -448,3 +448,25 @@ textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-h
 .invite-actions .btn { text-align: center; }
 .prework-req-desc { font-weight: 400; }
 .select-decider { color: var(--purple); font-weight: 700; border-color: #D9C7FF; }
+
+/* Agenda: workshop length slider */
+.duration { border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; background: #FAFBFC; }
+.duration-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.duration-name { font-size: 20px; font-weight: 700; }
+.duration-total { font-weight: 700; color: var(--brand); white-space: nowrap; }
+.duration p { margin: 0; }
+.duration-range { -webkit-appearance: none; appearance: none; border: 0; padding: 0; outline-offset: 6px; width: calc(100% - 60px); align-self: center; height: 6px; border-radius: 999px; margin: 8px 0 0; cursor: pointer;
+  background: linear-gradient(to right, var(--brand) var(--pct), #D5D8DE var(--pct)); }
+.duration-range.custom { background: #D5D8DE; }
+.duration-range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 3px solid var(--brand); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.duration-range::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid var(--brand); }
+.duration-range.custom::-webkit-slider-thumb { border-color: var(--muted); }
+.duration-range:focus { outline: none; } .duration-range:focus-visible { outline: 2px solid var(--brand); outline-offset: 6px; }
+.duration-ticks { display: flex; justify-content: space-between; margin-top: -4px; }
+.duration-tick { width: 80px; background: none; border: 0; padding: 4px 0; font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px; color: var(--muted); border-radius: 6px; }
+.duration-tick b { font-size: 13px; color: var(--text, #222); } .duration-tick span { font-size: 12px; }
+.duration-tick:hover b { color: var(--brand); }
+.duration-tick.on b, .duration-tick.on span { color: var(--brand); }
+.agenda-day { list-style: none; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 8px 0 -2px; }
+.agenda-day:first-child { margin-top: 0; }
+.minutes input:disabled { background: #F3F4F6; }

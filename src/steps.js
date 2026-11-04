@@ -34,9 +34,69 @@ export const BUILT_PHASE = 4;
 
 export const STEP_BY_KEY = Object.fromEntries(STEPS.map((s) => [s.key, s]));
 
-export function defaultAgenda() {
-  return STEPS.map((s) => ({ key: s.key, enabled: true, minutes: s.minutes }));
+// Workshop lengths, picked with the slider at the top of the Agenda tab. A day is
+// about 5 hours of activities (the rest is breaks, lunch and changeovers). Each
+// length sets every step's minutes; 0 drops the step because it doesn't fit.
+// Crazy 8s is always 8 minutes: one per sketch.
+export const DAY_MINUTES = 300;
+export const DURATIONS = [
+  { key: 'mini', name: 'Mini', days: 1, blurb: 'The essentials in one day. Skips the impact/effort grid and the sketch review, and keeps every exercise tight.' },
+  { key: 'focused', name: 'Focused', days: 1.5, blurb: 'Every step, at a brisk pace. A good fit when the problem is already well understood.' },
+  { key: 'standard', name: 'Standard', days: 2, blurb: 'The full workshop with room to discuss: deeper research share-outs and more time to sketch.' },
+  { key: 'extended', name: 'Extended', days: 2.5, blurb: 'More time for Q&A, sharing and the user flow, for bigger groups or a fuzzier problem.' },
+  { key: 'immersive', name: 'Immersive', days: 3, blurb: 'The deep dive: long research and sketching sessions, and a thorough design review at the end.' },
+];
+const DURATION_MINUTES = {
+  //              mini focused standard extended immersive
+  intro:         [15, 15, 20, 30, 30],
+  research:      [45, 60, 90, 120, 150],
+  hmw:           [20, 30, 40, 45, 60],
+  grid:          [0, 20, 30, 40, 45],
+  vote_hmw:      [15, 15, 20, 25, 30],
+  crazy8:        [8, 8, 8, 8, 8],
+  share8:        [25, 30, 45, 60, 60],
+  solution:      [45, 60, 90, 120, 150],
+  review:        [0, 20, 30, 40, 45],
+  vote_solution: [15, 20, 30, 30, 40],
+  flow:          [40, 60, 75, 90, 120],
+  prototype:     [30, 45, 60, 75, 75],
+  design_review: [30, 45, 60, 75, 90],
+};
+export const DEFAULT_DURATION = 2; // Standard
+
+// The agenda for a length: every step, the ones that don't fit switched off
+// (they keep their usual minutes for when they're switched back on).
+export function durationAgenda(i) {
+  return STEPS.map((s) => {
+    const m = DURATION_MINUTES[s.key][i];
+    return { key: s.key, enabled: m > 0, minutes: m || s.minutes };
+  });
 }
+
+// The length an agenda was set to, or -1 once a step has been changed by hand.
+export function durationOf(agenda) {
+  return DURATIONS.findIndex((_, i) => durationAgenda(i).every((t) => {
+    const a = agenda.find((x) => x.key === t.key);
+    return a && a.enabled === t.enabled && (!t.enabled || Number(a.minutes) === t.minutes);
+  }));
+}
+
+// Which day each step falls on: the day its midpoint lands in.
+export function agendaDays(agenda) {
+  let t = 0;
+  return agenda.map((a) => {
+    if (!a.enabled) return null;
+    const day = Math.floor((t + Number(a.minutes || 0) / 2) / DAY_MINUTES) + 1;
+    t += Number(a.minutes || 0);
+    return day;
+  });
+}
+
+export function defaultAgenda() {
+  return durationAgenda(DEFAULT_DURATION);
+}
+
+export const fmtMinutes = (n) => (n >= 60 ? `${Math.floor(n / 60)}h${n % 60 ? ` ${n % 60}m` : ''}` : `${n}m`);
 
 // The enabled steps in order, each merged with its definition.
 export function activeSteps(workshop) {
