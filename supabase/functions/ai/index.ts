@@ -278,24 +278,37 @@ const TASKS: Record<string, (sb: any, ws: any, body: any) => Promise<unknown>> =
     const idea = String(body.idea || "").trim().slice(0, 80);
     if (!idea) throw new Error("Type what the circle should become first.");
     const out = await callTool(
-      "You turn an empty circle into a simple drawing for a creative warm-up game, where people turn circles into as many different things as they can.",
-      [{ type: "text", text: `The canvas is a 200 by 200 SVG viewBox. A circle is already drawn at center (100, 100) with radius 76 (gray outline). Add elements so the circle becomes: "${idea}".
+      "You are an illustrator with a confident, clean pen-and-ink style, the kind of line art you'd see in a well-made sketchbook or a hand-drawn icon set. You draw with SVG paths. Your drawings are instantly recognizable, well proportioned, and charming, never crude.",
+      [{ type: "text", text: `A warm-up game: people turn empty circles into as many different things as they can. Turn this circle into: "${idea}".
 
-Rules:
-- Use the existing circle as the main shape (a clock face, a wheel rim, a balloon, a flower's center...). Don't redraw it.
-- Style: sketch line art, like a quick pen drawing. Outlines only: fill="none" on every element, one dark ink (stroke="#1D2939"), stroke widths 2.5 to 4, round line caps and joins. Prefer loose hand-drawn paths (gentle curves, slightly uneven lines) over perfect geometric shapes; a few short hatching strokes can suggest shading. No solid fills, no color.
-- Only these elements: path, circle, ellipse, line, polyline, polygon, rect, g. Attributes: d, cx, cy, r, rx, ry, x, y, x1, y1, x2, y2, width, height, points, fill, stroke, stroke-width, stroke-linecap, stroke-linejoin, opacity, transform. No text, no images, no gradients, no ids or styles.
-- Stay inside 0 to 200 on both axes. At most 30 elements.
-Also give a 1 to 4 word title for the drawing.` }],
+The canvas is a 200 by 200 SVG viewBox. A circle is already drawn at center (100, 100), radius 76. Don't redraw it. Build the drawing around it: the circle becomes part of the object (a coin's edge, a clock face, a wheel's tire, a balloon's body, a face, the top of a cup seen from above...), and you may draw outside it where the object needs it (a balloon's string and basket, a flower's petals and stem, a clock's bells and legs), staying within 6 to 194 on both axes. Leave the bottom 14 units (y > 186) mostly empty for a caption.
+
+First, in "plan", think like an illustrator:
+1. The most recognizable, iconic view of the subject that uses the circle well.
+2. The 3 to 6 features that make it unmistakable at a glance (for a silver dollar: a raised rim with a beaded inner border, a profile portrait facing left with hair and neck lines, a ring of short dashes standing in for lettering, a small star on each side, a date line at the bottom; for a sunflower: a seeded center in a crosshatch or spiral of dots, two layers of pointed petals around the circle, a stem with one leaf).
+3. The layout, with rough coordinates, so the drawing fills the space and stays balanced.
+
+Then draw it in "svg":
+- Line art only: every element fill="none" stroke="#1D2939", round line caps and joins. No color, no solid fills, no text (suggest lettering with short dashes or tiny strokes).
+- Line weights: about 3 for main contours, 1.5 to 2 for details and texture. Vary them; that's what makes line art look crafted.
+- Draw shapes with smooth cubic Bézier paths (C and S commands) and accurate proportions. A slightly hand-drawn feel is good; wobbly, lumpy or stray marks are not.
+- Add the details that sell it (texture, small highlights, repeated elements placed precisely by computing their coordinates). 25 to 90 elements is typical. Use transform="rotate(a 100 100)" for repeated radial elements.
+- Only these elements: path, circle, ellipse, line, polyline, polygon, rect, g. Only these attributes: d, cx, cy, r, rx, ry, x, y, x1, y1, x2, y2, width, height, points, fill, stroke, stroke-width, stroke-linecap, stroke-linejoin, transform.
+
+Also give a 1 to 4 word title.` }],
       {
         name: "draw_circle",
-        description: "The SVG elements to add, and a short title.",
+        description: "The plan, the SVG line art to add, and a short title.",
         input_schema: {
-          type: "object", additionalProperties: false, required: ["svg", "title"],
-          properties: { svg: { type: "string", description: "SVG elements only, no <svg> wrapper." }, title: { type: "string" } },
+          type: "object", additionalProperties: false, required: ["plan", "svg", "title"],
+          properties: {
+            plan: { type: "string", description: "View, key features, and layout with rough coordinates." },
+            svg: { type: "string", description: "SVG elements only, no <svg> wrapper." },
+            title: { type: "string" },
+          },
         },
       },
-      6000, "low", body.__startedAt,
+      20000, "medium", body.__startedAt,
     );
     return { svg: String(out.svg || ""), title: String(out.title || idea).slice(0, 40) };
   },

@@ -18,7 +18,8 @@ const MAX_SHEETS = 20;
 
 // AI doodles are SVG snippets in a 200×200 box around the circle. Only plain
 // shape elements and drawing attributes are kept, and every doodle is turned into
-// sketch line art: outlines only, in the ink color picked when it was drawn.
+// line art: outlines only, in the ink color picked when it was drawn, with the
+// AI's varied line weights kept (within limits).
 const ART_TAGS = new Set(['g', 'path', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'rect']);
 const ART_ATTRS = new Set(['d', 'cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'width', 'height', 'points', 'fill', 'stroke',
   'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'stroke-dasharray', 'opacity', 'fill-opacity', 'stroke-opacity', 'transform']);
@@ -30,8 +31,9 @@ function cleanArt(svg, ink) {
     if (!ART_TAGS.has(c.localName)) { c.remove(); return; }
     [...c.attributes].forEach((a) => { if (!ART_ATTRS.has(a.name) || /url\(|javascript:|expression/i.test(a.value)) c.removeAttribute(a.name); });
     if (c.localName !== 'g') {
-      const sw = Math.min(5, Math.max(2.5, parseFloat(c.getAttribute('stroke-width')) || 3));
-      c.setAttribute('fill', 'none'); c.setAttribute('stroke', ink); c.setAttribute('stroke-width', sw);
+      const sw = Math.min(5, Math.max(1.25, parseFloat(c.getAttribute('stroke-width')) || 2.5));
+      c.setAttribute('fill', 'none'); c.setAttribute('stroke', ink);
+      if (c.hasAttribute('stroke-width') || !c.closest('g[stroke-width]')) c.setAttribute('stroke-width', sw);
       c.setAttribute('stroke-linecap', 'round'); c.setAttribute('stroke-linejoin', 'round');
       ['opacity', 'fill-opacity', 'stroke-opacity'].forEach((n) => c.removeAttribute(n));
     }
@@ -68,8 +70,7 @@ function drawScene(ctx, strokes, art = {}, onArtLoad) {
   for (const [i, a] of Object.entries(art)) {
     const x = CELL * (i % GRID), y = CELL * Math.floor(i / GRID);
     const img = artImage(a.svg, onArtLoad);
-    // A second, fainter pass slightly offset gives the hand-drawn pen look.
-    if (img) { ctx.drawImage(img, x, y, CELL, CELL); ctx.globalAlpha = 0.35; ctx.drawImage(img, x + 2, y + 1.5, CELL, CELL); ctx.globalAlpha = 1; }
+    if (img) ctx.drawImage(img, x, y, CELL, CELL);
     const label = a.title.length > 26 ? a.title.slice(0, 25) + '…' : a.title;
     const lw = ctx.measureText(label).width + 16;
     ctx.fillStyle = 'rgba(255,255,255,.92)';
@@ -228,12 +229,12 @@ function CircleCanvas({ w, storageKey, onSave }) {
         <button class="btn btn-sm btn-ghost" onClick=${fresh}>New sheet</button>
         <button class="btn btn-sm btn-primary" disabled=${busy || empty || saved} onClick=${save}>${busy ? 'Saving…' : saved && !empty ? 'Saved ✓' : 'Save drawing'}</button>
       </div>
-      <p class="small muted warmup-hint">${tool === 'idea' ? 'Click a circle and type what it should become. The AI sketches it in, in the pen color you picked. Switch to the pen to add your own touches.' : tool === 'pen' ? 'Draw on the circles. Switch to "Type an idea" to have the AI draw one for you.' : 'Click or drag over a pen stroke to erase it.'}</p>
+      <p class="small muted warmup-hint">${tool === 'idea' ? 'Click a circle and type what it should become. The AI sketches it in the pen color you picked; it takes about half a minute, so keep going with other circles meanwhile. Switch to the pen to add your own touches.' : tool === 'pen' ? 'Draw on the circles. Switch to "Type an idea" to have the AI draw one for you.' : 'Click or drag over a pen stroke to erase it.'}</p>
       <div class="warmup-stage">
         <canvas ref=${canvas} class=${cx('warmup-canvas', tool === 'eraser' && 'erasing', tool === 'idea' && 'picking')} width=${SIZE} height=${SIZE}
           onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up}
           aria-label="Sixteen empty circles to draw on"></canvas>
-        ${Object.keys(drawing).map((i) => html`<span key=${i} class="idea-busy" style=${{ left: `${((i % GRID) + 0.5) / GRID * 100}%`, top: `${(Math.floor(i / GRID) + 0.5) / GRID * 100}%` }}>Drawing…</span>`)}
+        ${Object.keys(drawing).map((i) => html`<span key=${i} class="idea-busy" style=${{ left: `${((i % GRID) + 0.5) / GRID * 100}%`, top: `${(Math.floor(i / GRID) + 0.5) / GRID * 100}%` }}>Sketching…</span>`)}
         ${prompt != null && html`<${IdeaPrompt} key=${prompt} index=${prompt} current=${art[prompt]} onDraw=${(idea) => drawIdea(prompt, idea)} onRemove=${() => removeIdea(prompt)} onClose=${() => setPrompt(null)} />`}
       </div>
       ${msg && html`<span class="small muted">${msg}</span>`}
