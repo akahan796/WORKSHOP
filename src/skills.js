@@ -1,5 +1,5 @@
 // Sketching skills: the instructions participants run in their own AI tool for
-// Crazy 8s and the solution sketch, plus the context prompt that goes with them.
+// Crazy 8s and the solution sketch, copied together with the workshop context as one document.
 // The participant comes up with every idea and works one sketch at a time; the
 // skill only draws and formats, so everyone's sketches look alike. AI participants
 // get the same skill for the format (their ideas are their own). Organizers can edit both in Setup → Skills;
@@ -84,7 +84,8 @@ export function skillFor(w, kind) {
 
 export const isDefaultSkill = (w, kind) => !((w && w.intro && w.intro[KEYS[kind]]) || '').trim();
 
-// The workshop context participants paste into their AI tool along with the skill.
+// The one document participants copy into their AI tool when they go off to sketch:
+// what to do, the workshop context, then the skill itself (without its install header).
 // `ideas`: ranked Crazy 8s ideas [{ caption, author, votes }] for the solution sketch;
 // `mine`: the participant's own Crazy 8s captions.
 export function sketchPrompt(kind, { w, hmw, stickies = [], ideas = [], mine = [] }) {
@@ -92,8 +93,10 @@ export function sketchPrompt(kind, { w, hmw, stickies = [], ideas = [], mine = [
   const research = (k) => stickies.filter((s) => s.step === 'research' && s.kind === k).slice(0, 6).map((s) => `- ${s.text}`);
   const lines = [
     kind === 'crazy8'
-      ? 'Use the Crazy 8s skill with this workshop context. The ideas are mine: I will describe them one at a time, and you sketch each one.'
-      : 'Use the solution sketch skill with this workshop context. The idea and the flow are mine: I will describe the title and then each frame, one at a time, and you sketch each one.',
+      ? 'Follow the Crazy 8s skill at the end of this message, with the workshop context below. The ideas are mine: I will describe them one at a time, and you sketch each one.'
+      : 'Follow the solution sketch skill at the end of this message, with the workshop context below. The idea and the flow are mine: I will describe the title and then each frame, one at a time, and you sketch each one.',
+    '',
+    '## Workshop context',
     '',
     `How might we: ${hmw || '(the group has not chosen an HMW yet)'}`,
     '',
@@ -112,10 +115,10 @@ export function sketchPrompt(kind, { w, hmw, stickies = [], ideas = [], mine = [
   if (kind === 'solution') {
     if (ideas.length) lines.push('', 'Strongest Crazy 8s ideas from the group (votes):', ...ideas.slice(0, 10).map((i) => `- ${i.caption} (${i.author || 'someone'}, ${i.votes || 0} votes)`));
     if (mine.length) lines.push('', 'My own Crazy 8s ideas:', ...mine.map((c) => `- ${c}`));
-    lines.push('', 'Wait for my title and idea, then for frame 1.');
-  } else {
-    lines.push('', 'Wait for my idea 1.');
   }
+  const skill = skillFor(w, kind).replace(/^---\n[\s\S]*?\n---\n+/, '').trim();
+  lines.push('', '## The skill', '', skill, '', '---', '',
+    kind === 'solution' ? 'Wait for my title and idea, then for frame 1.' : 'Wait for my idea 1.');
   return lines.filter((l) => l != null).join('\n');
 }
 

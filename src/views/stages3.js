@@ -1,7 +1,7 @@
 // Phase 3 stages: Crazy 8s, sharing them (per-sketch votes), solution sketches,
 // review, and voting on a direction with the Decider.
 import { html, useState, useEffect, useMemo, cx, uid, DECIDER_PURPLE, facilitates } from '../lib.js';
-import { skillFor, sketchPrompt } from '../skills.js';
+import { sketchPrompt } from '../skills.js';
 import { backend } from '../backend/index.js';
 import { Avatar, Empty, AiButton, Modal, useCopy } from './ui.js';
 import { tallyItems, DECIDER_WEIGHT, canMemberVote, synthCrazy8, synthSketchVotes, synthSolutions, synthComments, aiDecideSolution } from '../ai.js';
@@ -39,21 +39,29 @@ export function ChosenHmw({ w, data }) {
     : html`<div class="chosen-hmw muted">No HMW chosen yet. Sketch toward the group's top problem or opportunity.</div>`;
 }
 
-function SkillBox({ title, text, prompt }) {
+// The one document a participant copies into their AI tool: context and skill together.
+function SkillBox({ title, doc, file }) {
   const [open, setOpen] = useState(false);
   const [copied, copy] = useCopy();
-  if (!text && !prompt) return null;
+  if (!doc) return null;
+  const download = () => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([doc], { type: 'text/markdown' }));
+    a.download = file;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
   return html`
     <div class="skill-box">
       <div class="row between">
         <b class="small">${title}</b>
         <div class="row">
-          ${prompt && html`<button class="btn btn-sm" onClick=${() => copy(prompt, 'p')}>${copied === 'p' ? 'Copied ✓' : 'Copy prompt'}</button>`}
-          ${text && html`<button class="btn btn-sm" onClick=${() => copy(text, 's')}>${copied === 's' ? 'Copied ✓' : 'Copy skill'}</button>`}
-          ${text && html`<button class="btn btn-sm btn-ghost" onClick=${() => setOpen(!open)}>${open ? 'Hide' : 'Show'} skill</button>`}
+          <button class="btn btn-sm btn-primary" onClick=${() => copy(doc, 'd')}>${copied === 'd' ? 'Copied ✓' : 'Copy for your AI tool'}</button>
+          <button class="btn btn-sm btn-ghost" onClick=${download}>Download .md</button>
+          <button class="btn btn-sm btn-ghost" onClick=${() => setOpen(!open)}>${open ? 'Hide' : 'Show'}</button>
         </div>
       </div>
-      ${open && html`<pre class="skill-text">${text}</pre>`}
+      ${open && html`<pre class="skill-text">${doc}</pre>`}
     </div>`;
 }
 
@@ -147,7 +155,7 @@ export function Crazy8Stage({ w, data, me, isOrganizer }) {
     <div class="stack">
       <${ChosenHmw} w=${w} data=${data} />
       ${me && !facilitates(me) ? html`
-        <${SkillBox} title="Your ideas, sketched one at a time: paste the skill and prompt into your AI tool, describe idea 1, add the sketch to slot 1, then the next" text=${skillFor(w, 'crazy8')} prompt=${prompt} />
+        <${SkillBox} title="Your ideas, sketched one at a time: copy this into your AI tool, describe idea 1, add the sketch to slot 1, then the next" doc=${prompt} file="crazy-8s.md" />
         <div class="row between"><h3>Your Crazy 8s <span class="muted small">${cells.filter((c) => c.file_path).length}/8</span></h3><span class="muted small">Only you can see your sheet until the share-out.</span></div>
         <div class="crazy8-grid">
           ${cells.map((c, i) => html`<${CellEditor} key=${c.id} cell=${c} url=${urls[c.file_path]} label=${String(i + 1)}
@@ -268,8 +276,8 @@ export function SolutionStage({ w, data, me, isOrganizer }) {
     <div class="stack">
       <${ChosenHmw} w=${w} data=${data} />
       ${me && !facilitates(me) ? html`
-        <${SkillBox} title="Your solution, one frame at a time: paste the skill and prompt into your AI tool, give your title, then describe and add each frame" text=${skillFor(w, 'solution')}
-          prompt=${sketchPrompt('solution', { w, hmw: data.stickies.find((x) => x.id === w.step_state?.hmw_final?.sticky_id)?.text, stickies: data.stickies,
+        <${SkillBox} title="Your solution, one frame at a time: copy this into your AI tool, give your title, then describe and add each frame" file="solution-sketch.md"
+          doc=${sketchPrompt('solution', { w, hmw: data.stickies.find((x) => x.id === w.step_state?.hmw_final?.sticky_id)?.text, stickies: data.stickies,
             ideas: ideas.filter((r) => r.item.caption).map((r) => ({ caption: r.item.caption, author: authors[r.item.member_id]?.name, votes: r.score })),
             mine: (data.sheets.find((x) => x.kind === 'crazy8' && x.member_id === me.id)?.cells || []).map((c) => c.caption).filter(Boolean) })} />
         <section class="card stack">
