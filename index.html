@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="refined">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,10 +9,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="themes.css">
-<script>(function () { var t = null; try { t = localStorage.getItem('workshop-theme'); } catch (e) {}
-  if (!t || t === 'default') t = 'refined';
-  if (t === 'classic') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); })();</script>
+<link rel="stylesheet" href="refined.css">
+<script>try { var p = localStorage.getItem('workshop-palette'); if (p && p !== 'blue') document.documentElement.setAttribute('data-palette', p); } catch (e) {}</script>
 <script src="config.js"></script>
 </head>
 <body>

@@ -16,34 +16,32 @@ export function Header({ user, children, menu = [] }) {
     </header>`;
 }
 
-// Look-and-feel themes, picked from the user menu. Refined is the default look
-// for everyone; Classic is the original Arial look (styles.css with no theme),
-// and the rest are design explorations (themes.css). A pick is per browser and
-// is applied before first paint by index.html. A stored 'default' predates
-// Refined becoming the default, so it means Refined now.
-export const THEMES = [
-  { key: 'refined', label: 'Refined', hint: 'The default look' },
-  { key: 'classic', label: 'Classic', hint: 'The original Arial look' },
-  { key: 'soft', label: 'Soft modern', hint: 'Rounded white cards on cool gray' },
-  { key: 'crisp', label: 'Crisp product', hint: 'Hairlines, tight corners, mostly mono' },
-  { key: 'studio', label: 'Workshop studio', hint: 'Warm paper and the diamond colors' },
+// Color themes, picked from the user menu. Each is a palette (an accent and a
+// neutral ramp) over the one look in refined.css. The pick is per browser and is
+// applied before first paint by index.html.
+export const PALETTES = [
+  { key: 'blue', label: 'OneStream blue', hint: 'The default', swatch: ['#0A5DFF', '#F2F4F7'] },
+  { key: 'indigo', label: 'Indigo', hint: 'Indigo on slate', swatch: ['#4F46E5', '#F1F5F9'] },
+  { key: 'teal', label: 'Teal', hint: 'Teal on cool gray', swatch: ['#0E9384', '#F2F4F7'] },
+  { key: 'graphite', label: 'Graphite', hint: 'Near-black on zinc', swatch: ['#18181B', '#F4F4F5'] },
+  { key: 'terracotta', label: 'Terracotta', hint: 'Warm clay on stone', swatch: ['#B9562F', '#F3F0EB'] },
 ];
-const THEME_KEY = 'workshop-theme';
-function currentTheme() {
-  let t = null;
-  try { t = localStorage.getItem(THEME_KEY); } catch {}
-  return !t || t === 'default' ? 'refined' : t;
+const PALETTE_KEY = 'workshop-palette';
+function currentPalette() {
+  let p = null;
+  try { p = localStorage.getItem(PALETTE_KEY); } catch {}
+  return PALETTES.some((x) => x.key === p) ? p : 'blue';
 }
-function applyTheme(key) {
-  if (key === 'classic') document.documentElement.removeAttribute('data-theme');
-  else document.documentElement.setAttribute('data-theme', key);
-  try { localStorage.setItem(THEME_KEY, key); } catch {}
+function applyPalette(key) {
+  if (key === 'blue') document.documentElement.removeAttribute('data-palette');
+  else document.documentElement.setAttribute('data-palette', key);
+  try { localStorage.setItem(PALETTE_KEY, key); } catch {}
 }
 
 function UserMenu({ user, items }) {
   const [open, setOpen] = useState(false);
-  const [theme, setTheme] = useState(currentTheme);
-  const choose = (key) => { applyTheme(key); setTheme(key); };
+  const [palette, setPalette] = useState(currentPalette);
+  const choose = (key) => { applyPalette(key); setPalette(key); };
   useEffect(() => {
     if (!open) return;
     const close = (e) => { if (e.type === 'mousedown' ? !e.target.closest('.header-user') : e.key === 'Escape') setOpen(false); };
@@ -63,11 +61,11 @@ function UserMenu({ user, items }) {
         <div class="user-menu" role="menu">
           ${items.map((it) => html`<button key=${it.label} role="menuitem" class="user-menu-item" onClick=${pick(it.onClick)}>${it.label}</button>`)}
           ${items.length > 0 && html`<div class="user-menu-sep" />`}
-          ${user.isStaff && html`<div class="user-menu-label">Themes</div>
-          ${THEMES.map((t) => html`<button key=${t.key} role="menuitemradio" aria-checked=${theme === t.key} class=${cx('user-menu-item theme-item', theme === t.key && 'on')} onClick=${() => choose(t.key)}>
-            <span class=${'theme-swatch theme-swatch-' + t.key} aria-hidden="true"></span>
+          ${user.isStaff && html`<div class="user-menu-label">Color theme</div>
+          ${PALETTES.map((t) => html`<button key=${t.key} role="menuitemradio" aria-checked=${palette === t.key} class=${cx('user-menu-item theme-item', palette === t.key && 'on')} onClick=${() => choose(t.key)}>
+            <span class="theme-swatch" style=${{ background: `linear-gradient(135deg, ${t.swatch[1]} 50%, ${t.swatch[0]} 50%)` }} aria-hidden="true"></span>
             <span class="grow"><span class="theme-name">${t.label}</span><span class="theme-hint">${t.hint}</span></span>
-            <span class="theme-check" aria-hidden="true">${theme === t.key ? '✓' : ''}</span></button>`)}
+            <span class="theme-check" aria-hidden="true">${palette === t.key ? '✓' : ''}</span></button>`)}
           <div class="user-menu-sep" />`}
           <button role="menuitem" class="user-menu-item" onClick=${pick(async () => { await backend.signOut(); navigate('/login'); })}>Sign out</button>
         </div>`}
