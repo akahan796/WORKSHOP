@@ -470,3 +470,12 @@ textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-h
 .agenda-day { list-style: none; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 8px 0 -2px; }
 .agenda-day:first-child { margin-top: 0; }
 .minutes input:disabled { background: #F3F4F6; }
+
+/* Sketch steps: upload several images at once */
+.bulk-drop { position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 2px dashed var(--line-strong); border-radius: var(--radius); background: #fff; cursor: pointer; flex-wrap: wrap; }
+.bulk-drop:hover, .bulk-drop.over { border-color: var(--brand); background: var(--brand-soft); }
+.bulk-drop.busy { cursor: progress; opacity: .8; }
+.bulk-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.bulk-drop .grow { display: flex; flex-direction: column; min-width: 220px; }
+.bulk-icon { width: 32px; height: 32px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); display: inline-flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; flex: none; }
+.ok-text { color: var(--ok); font-weight: 700; }

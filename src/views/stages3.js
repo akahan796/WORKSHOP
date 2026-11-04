@@ -69,8 +69,78 @@ export function Lightbox({ src, caption, onClose }) {
   return html`<${Modal} title=${caption || 'Sketch'} onClose=${onClose} wide><img class="lightbox-img" src=${src} alt=${caption || ''} /><//>`;
 }
 
+// Where each of several files goes. A file whose name ends in a slot number ("3.png",
+// "crazy8-3.png", "Frame 2.jpg") goes into that slot, which is what the sketching
+// skills name their images; the rest fill the empty slots in name order, then new
+// slots up to `max`. Returns { places: [{ index, file, ext }], skipped: [names], full }.
+function placeFiles(fileList, cells, max) {
+  const files = [...fileList].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const taken = new Set();
+  const places = [], skipped = [], loose = [];
+  for (const file of files) {
+    const ext = IMAGE_TYPES[file.type];
+    if (!ext || file.size > 10e6) { skipped.push(file.name); continue; }
+    const n = Number((file.name.replace(/\.[^.]+$/, '').match(/\d+/g) || []).pop());
+    if (n >= 1 && n <= max && !taken.has(n - 1)) { taken.add(n - 1); places.push({ index: n - 1, file, ext }); }
+    else loose.push({ file, ext });
+  }
+  let full = 0;
+  for (const f of loose) {
+    let i = 0;
+    while (i < max && (taken.has(i) || (cells[i] && cells[i].file_path))) i++;
+    if (i >= max) { full++; continue; }
+    taken.add(i);
+    places.push({ index: i, ...f });
+  }
+  return { places, skipped, full };
+}
+
+// Uploads several sketches at once and saves the sheet in one go (one save per
+// file would race). `cells` is the current list; slots past its end are added.
+function useBulkUpload({ w, me, cells, max, save }) {
+  const [status, setStatus] = useState({ busy: false, msg: '', error: '' });
+  async function run(fileList) {
+    const { places, skipped, full } = placeFiles(fileList, cells, max);
+    const notes = [];
+    if (skipped.length) notes.push(`${skipped.length} skipped (not an image, or over 10 MB)`);
+    if (full) notes.push(`${full} didn't fit: no empty slots left`);
+    if (!places.length) { setStatus({ busy: false, msg: '', error: notes.join('. ') || 'No images to upload.' }); return; }
+    setStatus({ busy: true, msg: `Uploading ${places.length} ${places.length === 1 ? 'sketch' : 'sketches'}…`, error: '' });
+    try {
+      const paths = await Promise.all(places.map((p) => backend.uploadSketch(w.id, me.id, p.file, p.ext)));
+      const next = cells.slice();
+      places.forEach((p, k) => {
+        while (next.length <= p.index) next.push({ id: uid(), file_path: null, caption: '' });
+        next[p.index] = { ...next[p.index], file_path: paths[k] };
+      });
+      await save(next);
+      setStatus({ busy: false, msg: `Added ${places.length} ${places.length === 1 ? 'sketch' : 'sketches'}.`, error: notes.join('. ') });
+    } catch (e) {
+      setStatus({ busy: false, msg: '', error: e.message });
+    }
+  }
+  return [status, run];
+}
+
+// "Upload several": choose or drop many images at once.
+function BulkUpload({ status, onFiles, hint }) {
+  const [over, setOver] = useState(false);
+  return html`
+    <label class=${cx('bulk-drop', over && 'over', status.busy && 'busy')}
+      onDragOver=${(e) => { e.preventDefault(); setOver(true); }} onDragLeave=${() => setOver(false)}
+      onDrop=${(e) => { e.preventDefault(); setOver(false); onFiles(e.dataTransfer.files); }}>
+      <input type="file" multiple accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" disabled=${status.busy}
+        onChange=${(e) => { onFiles(e.target.files); e.target.value = ''; }} />
+      <span class="bulk-icon" aria-hidden="true">⇪</span>
+      <span class="grow"><b>${status.busy ? status.msg : 'Upload several at once'}</b>
+        <span class="muted small">${hint}</span></span>
+      ${!status.busy && status.msg && html`<span class="small ok-text">${status.msg}</span>`}
+      ${status.error && html`<span class="error small">${status.error}</span>`}
+    </label>`;
+}
+
 // One sketch slot: click, drag & drop, or paste (Ctrl/Cmd+V) an image.
-function CellEditor({ cell, url, label, onFile, onCaption, onClear }) {
+function CellEditor({ cell, url, label, onFile, onFiles, onCaption, onClear }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [caption, setCaption] = useState(cell.caption || '');
@@ -86,6 +156,8 @@ function CellEditor({ cell, url, label, onFile, onCaption, onClear }) {
     try { await onFile(file, ext); } catch (e) { setError(e.message); }
     setBusy(false);
   }
+  // Several files dropped or chosen on one slot are placed like a bulk upload.
+  const pick = (files) => (files.length > 1 && onFiles ? onFiles(files) : take(files[0]));
   const fromClipboard = (e) => {
     const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith('image/'));
     if (f) { e.preventDefault(); take(f); }
@@ -94,9 +166,9 @@ function CellEditor({ cell, url, label, onFile, onCaption, onClear }) {
   return html`
     <div class="cell-edit">
       <label class=${cx('cell-drop', cell.file_path && 'has-img')} tabIndex="0" onPaste=${fromClipboard}
-        onDragOver=${(e) => e.preventDefault()} onDrop=${(e) => { e.preventDefault(); take(e.dataTransfer.files[0]); }}
+        onDragOver=${(e) => e.preventDefault()} onDrop=${(e) => { e.preventDefault(); pick(e.dataTransfer.files); }}
         title="Click to choose, drop, or paste an image">
-        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange=${(e) => { take(e.target.files[0]); e.target.value = ''; }} />
+        <input type="file" multiple=${!!onFiles} accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange=${(e) => { pick(e.target.files); e.target.value = ''; }} />
         ${cell.file_path ? (url ? html`<img src=${url} alt=${caption} />` : html`<span class="muted small">Loading…</span>`)
           : html`<span class="cell-hint"><b>${label}</b><span class="muted small">${busy ? 'Uploading…' : 'Click, drop or paste'}</span></span>`}
       </label>
@@ -150,6 +222,7 @@ export function Crazy8Stage({ w, data, me, isOrganizer }) {
     const next = cells.map((c, j) => (j === i ? { ...c, ...patch } : c));
     return backend.saveSheet(w.id, me.id, 'crazy8', { cells: next });
   };
+  const [bulk, bulkUpload] = useBulkUpload({ w, me, cells, max: 8, save: (next) => backend.saveSheet(w.id, me.id, 'crazy8', { cells: next }) });
 
   return html`
     <div class="stack">
@@ -157,8 +230,9 @@ export function Crazy8Stage({ w, data, me, isOrganizer }) {
       ${me && !facilitates(me) ? html`
         <${SkillBox} title="Your ideas, sketched one at a time: copy this into your AI tool, describe idea 1, add the sketch to slot 1, then the next" doc=${prompt} file="crazy-8s.md" />
         <div class="row between"><h3>Your Crazy 8s <span class="muted small">${cells.filter((c) => c.file_path).length}/8</span></h3><span class="muted small">Only you can see your sheet until the share-out.</span></div>
+        <${BulkUpload} status=${bulk} onFiles=${bulkUpload} hint="Choose or drop up to 8 images. Files named 1 to 8 go into those slots; the rest fill the empty ones." />
         <div class="crazy8-grid">
-          ${cells.map((c, i) => html`<${CellEditor} key=${c.id} cell=${c} url=${urls[c.file_path]} label=${String(i + 1)}
+          ${cells.map((c, i) => html`<${CellEditor} key=${c.id} cell=${c} url=${urls[c.file_path]} label=${String(i + 1)} onFiles=${bulkUpload}
             onFile=${async (f, ext) => save(i, { file_path: await backend.uploadSketch(w.id, me.id, f, ext) })}
             onCaption=${(caption) => save(i, { caption })} onClear=${() => save(i, { file_path: null, caption: '' })} />`)}
         </div>` : html`<p class="muted">Participants are sketching. Sheets stay private until the share-out.</p>`}
@@ -271,6 +345,7 @@ export function SolutionStage({ w, data, me, isOrganizer }) {
 
   const save = (patch) => backend.saveSheet(w.id, me.id, 'solution', { cells: frames, ...patch });
   const saveFrame = (i, patch) => save({ cells: frames.map((c, j) => (j === i ? { ...c, ...patch } : c)) });
+  const [bulk, bulkUpload] = useBulkUpload({ w, me, cells: frames, max: MAX_FRAMES, save: (cells) => save({ cells }) });
 
   return html`
     <div class="stack">
@@ -295,8 +370,9 @@ export function SolutionStage({ w, data, me, isOrganizer }) {
               </button>`)}</div>
           </div>
           <div class="row between"><h4>Frames</h4><ul class="checklist">${checklist(mine).map(([t, ok]) => html`<li key=${t} class=${ok ? 'ok' : ''}>${ok ? '✓' : '○'} ${t}</li>`)}</ul></div>
+          <${BulkUpload} status=${bulk} onFiles=${bulkUpload} hint=${`Choose or drop up to ${MAX_FRAMES} frames. Files named 1 to ${MAX_FRAMES} go into those frames; the rest fill the empty ones, adding frames as needed.`} />
           <div class="frames">
-            ${frames.map((c, i) => html`<${CellEditor} key=${c.id} cell=${c} url=${urls[c.file_path]} label=${'Frame ' + (i + 1)}
+            ${frames.map((c, i) => html`<${CellEditor} key=${c.id} cell=${c} url=${urls[c.file_path]} label=${'Frame ' + (i + 1)} onFiles=${bulkUpload}
               onFile=${async (f, ext) => saveFrame(i, { file_path: await backend.uploadSketch(w.id, me.id, f, ext) })}
               onCaption=${(caption) => saveFrame(i, { caption })}
               onClear=${frames.length > 3 ? () => save({ cells: frames.filter((_, j) => j !== i) }) : () => saveFrame(i, { file_path: null, caption: '' })} />`)}
