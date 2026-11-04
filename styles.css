@@ -499,7 +499,7 @@ textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-h
 .theme-item.on { background: var(--brand-soft); }
 .theme-check { width: 14px; color: var(--brand); font-weight: 700; }
 .theme-swatch { width: 26px; height: 26px; border-radius: 6px; flex: none; border: 1px solid rgba(0,0,0,.12); }
-.theme-swatch-default { background: linear-gradient(135deg, #F4F5F7 50%, #0A5DFF 50%); border-radius: 8px; }
+.theme-swatch-classic { background: linear-gradient(135deg, #F4F5F7 50%, #0A5DFF 50%); border-radius: 8px; }
 .theme-swatch-soft { background: linear-gradient(135deg, #EEF1F6 50%, #fff 50%); border-radius: 50%; box-shadow: inset 0 0 0 4px #0A5DFF22; }
 .theme-swatch-crisp { background: linear-gradient(135deg, #FAFAFA 50%, #111 50%); border-radius: 3px; }
 .theme-swatch-studio { background: conic-gradient(#E8505B 0 25%, #F5C55A 0 50%, #4FBE8C 0 75%, #8B5A3C 0); border-radius: 10px; }

@@ -16,20 +16,26 @@ export function Header({ user, children, menu = [] }) {
     </header>`;
 }
 
-// Look-and-feel themes, previewed from the user menu. Default is the original
-// look; the others are design explorations layered on top (themes.css). The pick
-// is per browser and is applied before first paint by index.html.
+// Look-and-feel themes, picked from the user menu. Refined is the default look
+// for everyone; Classic is the original Arial look (styles.css with no theme),
+// and the rest are design explorations (themes.css). A pick is per browser and
+// is applied before first paint by index.html. A stored 'default' predates
+// Refined becoming the default, so it means Refined now.
 export const THEMES = [
-  { key: 'default', label: 'Default', hint: 'The current look' },
-  { key: 'refined', label: 'Refined', hint: 'Lighter type, finer controls, more air' },
+  { key: 'refined', label: 'Refined', hint: 'The default look' },
+  { key: 'classic', label: 'Classic', hint: 'The original Arial look' },
   { key: 'soft', label: 'Soft modern', hint: 'Rounded white cards on cool gray' },
   { key: 'crisp', label: 'Crisp product', hint: 'Hairlines, tight corners, mostly mono' },
   { key: 'studio', label: 'Workshop studio', hint: 'Warm paper and the diamond colors' },
 ];
 const THEME_KEY = 'workshop-theme';
-function currentTheme() { try { return localStorage.getItem(THEME_KEY) || 'default'; } catch { return 'default'; } }
+function currentTheme() {
+  let t = null;
+  try { t = localStorage.getItem(THEME_KEY); } catch {}
+  return !t || t === 'default' ? 'refined' : t;
+}
 function applyTheme(key) {
-  if (key === 'default') document.documentElement.removeAttribute('data-theme');
+  if (key === 'classic') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', key);
   try { localStorage.setItem(THEME_KEY, key); } catch {}
 }

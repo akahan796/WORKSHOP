@@ -1,5 +1,6 @@
-/* Theme explorations, picked from the user menu (Themes) and set as
-   html[data-theme=…]. No attribute = Default, the original look in styles.css.
+/* Themes, picked from the user menu (Themes) and set as html[data-theme=…].
+   Refined is the default for everyone (index.html sets it). No attribute =
+   Classic, the original look in styles.css.
    Each theme re-points the tokens, then restyles the surfaces that use
    hard-coded colors. Arial stays the font in every theme. */
 
