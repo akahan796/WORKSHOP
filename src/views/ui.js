@@ -16,8 +16,27 @@ export function Header({ user, children, menu = [] }) {
     </header>`;
 }
 
+// Look-and-feel themes, previewed from the user menu. Default is the original
+// look; the others are design explorations layered on top (themes.css). The pick
+// is per browser and is applied before first paint by index.html.
+export const THEMES = [
+  { key: 'default', label: 'Default', hint: 'The current look' },
+  { key: 'soft', label: 'Soft modern', hint: 'Rounded white cards on cool gray' },
+  { key: 'crisp', label: 'Crisp product', hint: 'Hairlines, tight corners, mostly mono' },
+  { key: 'studio', label: 'Workshop studio', hint: 'Warm paper and the diamond colors' },
+];
+const THEME_KEY = 'workshop-theme';
+function currentTheme() { try { return localStorage.getItem(THEME_KEY) || 'default'; } catch { return 'default'; } }
+function applyTheme(key) {
+  if (key === 'default') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', key);
+  try { localStorage.setItem(THEME_KEY, key); } catch {}
+}
+
 function UserMenu({ user, items }) {
   const [open, setOpen] = useState(false);
+  const [theme, setTheme] = useState(currentTheme);
+  const choose = (key) => { applyTheme(key); setTheme(key); };
   useEffect(() => {
     if (!open) return;
     const close = (e) => { if (e.type === 'mousedown' ? !e.target.closest('.header-user') : e.key === 'Escape') setOpen(false); };
@@ -37,6 +56,12 @@ function UserMenu({ user, items }) {
         <div class="user-menu" role="menu">
           ${items.map((it) => html`<button key=${it.label} role="menuitem" class="user-menu-item" onClick=${pick(it.onClick)}>${it.label}</button>`)}
           ${items.length > 0 && html`<div class="user-menu-sep" />`}
+          ${user.isStaff && html`<div class="user-menu-label">Themes</div>
+          ${THEMES.map((t) => html`<button key=${t.key} role="menuitemradio" aria-checked=${theme === t.key} class=${cx('user-menu-item theme-item', theme === t.key && 'on')} onClick=${() => choose(t.key)}>
+            <span class=${'theme-swatch theme-swatch-' + t.key} aria-hidden="true"></span>
+            <span class="grow"><span class="theme-name">${t.label}</span><span class="theme-hint">${t.hint}</span></span>
+            <span class="theme-check" aria-hidden="true">${theme === t.key ? '✓' : ''}</span></button>`)}
+          <div class="user-menu-sep" />`}
           <button role="menuitem" class="user-menu-item" onClick=${pick(async () => { await backend.signOut(); navigate('/login'); })}>Sign out</button>
         </div>`}
     </div>`;
