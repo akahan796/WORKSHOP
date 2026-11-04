@@ -192,6 +192,24 @@ function CellEditor({ cell, url, label, index, onFile, onFiles, onMove, onCaptio
     </div>`;
 }
 
+// "I'm done": shown once the participant has added at least one sketch. Sets the
+// sheet's `ready` flag so the facilitator knows not to expect more from them.
+function DoneBar({ sheet, count, onChange, what }) {
+  if (!count) return null;
+  const done = !!sheet?.ready;
+  return html`
+    <div class=${cx('done-bar', done && 'is-done')}>
+      ${done
+        ? html`<span class="done-check" aria-hidden="true">✓</span><span class="grow"><b>You're done.</b> <span class="muted">The facilitator can see you've finished. You can still make changes.</span></span>
+            <button class="btn btn-sm btn-ghost" onClick=${() => onChange(false)}>Not done yet</button>`
+        : html`<span class="grow"><b>Finished ${what}?</b> <span class="muted">Let the facilitator know, so they don't wait for more from you.</span></span>
+            <button class="btn btn-sm btn-primary" onClick=${() => onChange(true)}>I'm done</button>`}
+    </div>`;
+}
+
+// Facilitator view of one sketcher's status.
+const doneStatus = (x, n) => (x?.ready ? html`<span class="pill pill-live">Done</span>` : n ? html`<span class="pill">Sketching</span>` : html`<span class="pill pill-hidden">Not started</span>`);
+
 // Dots on a vote target: mine always, everyone's when revealed (Decider in purple).
 function Dots({ votes, me, show, authors }) {
   const list = show ? votes : votes.filter((v) => v.member_id === me?.id);
@@ -248,7 +266,9 @@ export function Crazy8Stage({ w, data, me, isOrganizer }) {
           ${cells.map((c, i) => html`<${CellEditor} key=${c.id} cell=${c} url=${urls[c.file_path]} label=${String(i + 1)} index=${i} onFiles=${bulkUpload} onMove=${move}
             onFile=${async (f, ext) => save(i, { file_path: await backend.uploadSketch(w.id, me.id, f, ext) })}
             onCaption=${(caption) => save(i, { caption })} onClear=${() => save(i, { file_path: null, caption: '' })} />`)}
-        </div>` : html`<p class="muted">Participants are sketching. Sheets stay private until the share-out.</p>`}
+        </div>
+        <${DoneBar} sheet=${mine} count=${cells.filter((c) => c.file_path).length} what="your Crazy 8s"
+          onChange=${(ready) => backend.saveSheet(w.id, me.id, 'crazy8', { cells, ready })} />` : html`<p class="muted">Participants are sketching. Sheets stay private until the share-out.</p>`}
       ${isOrganizer && html`
         <section class="card">
           <div class="row between"><h3>Progress</h3>
@@ -260,8 +280,9 @@ export function Crazy8Stage({ w, data, me, isOrganizer }) {
           <ul class="progress-list">
             ${sketchers.map((m) => { const x = sheets.find((s) => s.member_id === m.id); const n = x ? x.cells.filter((c) => c.file_path).length : 0; return html`
               <li key=${m.id}><${Avatar} name=${m.name} color=${m.color} size=${22} /><span class="grow">${m.name}${m.is_synthetic ? ' (AI)' : ''}</span>
-                <span class="bar small-bar"><span style=${{ width: (n / 8) * 100 + '%' }}></span></span><span class="small">${n}/8</span></li>`; })}
+                <span class="bar small-bar"><span style=${{ width: (n / 8) * 100 + '%' }}></span></span><span class="small">${n}/8</span>${doneStatus(x, n)}</li>`; })}
           </ul>
+          <p class="muted small">${sheets.filter((x) => x.ready && sketchers.some((m) => m.id === x.member_id)).length} of ${sketchers.length} done</p>
         </section>`}
     </div>`;
 }
@@ -371,9 +392,7 @@ export function SolutionStage({ w, data, me, isOrganizer }) {
             mine: (data.sheets.find((x) => x.kind === 'crazy8' && x.member_id === me.id)?.cells || []).map((c) => c.caption).filter(Boolean) })} />
         <section class="card stack">
           <div class="form-grid">
-            <label class="field"><span class="field-label">Title</span><input value=${title} placeholder="A clear, memorable name" onInput=${(e) => setTitle(e.target.value)} onBlur=${() => title !== (mine?.title || '') && save({ title })} /></label>
-            <label class="field"><span class="field-label">Status</span>
-              <label class="toggle"><input type="checkbox" checked=${!!mine?.ready} onChange=${(e) => save({ ready: e.target.checked })} /> Ready for review</label></label>
+            <label class="field span-2"><span class="field-label">Title</span><input value=${title} placeholder="A clear, memorable name" onInput=${(e) => setTitle(e.target.value)} onBlur=${() => title !== (mine?.title || '') && save({ title })} /></label>
             <label class="field span-2"><span class="field-label">Summary</span><textarea rows="2" value=${summary} placeholder="What it is and why it answers the HMW" onInput=${(e) => setSummary(e.target.value)} onBlur=${() => summary !== (mine?.summary || '') && save({ summary })}></textarea></label>
           </div>
           <div class="field"><span class="field-label">Builds on (optional): pick the strongest Crazy 8s idea, yours or anyone's</span>
@@ -392,6 +411,7 @@ export function SolutionStage({ w, data, me, isOrganizer }) {
               onClear=${frames.length > 3 ? () => save({ cells: frames.filter((_, j) => j !== i) }) : () => saveFrame(i, { file_path: null, caption: '' })} />`)}
             ${frames.length < MAX_FRAMES && html`<button class="add-frame" onClick=${() => save({ cells: [...frames, { id: uid(), file_path: null, caption: '' }] })}>+ Add frame</button>`}
           </div>
+          <${DoneBar} sheet=${mine} count=${frames.filter((c) => c.file_path).length} what="your solution sketch" onChange=${(ready) => save({ ready })} />
         </section>` : html`<p class="muted">Participants are developing their solution sketches.</p>`}
       ${isOrganizer && html`
         <section class="card">
@@ -405,7 +425,8 @@ export function SolutionStage({ w, data, me, isOrganizer }) {
           <ul class="progress-list">${sketchers.map((m) => { const x = solutions.find((s) => s.member_id === m.id); return html`
             <li key=${m.id}><${Avatar} name=${m.name} color=${m.color} size=${22} /><span class="grow">${m.name}${m.is_synthetic ? ' (AI)' : ''}</span>
               <span class="small">${x ? `${x.title || 'Untitled'} · ${x.cells.filter((c) => c.file_path).length} frames` : 'Not started'}</span>
-              ${x?.ready ? html`<span class="pill pill-live">Ready</span>` : html`<span class="pill">Draft</span>`}</li>`; })}</ul>
+              ${x && doneStatus(x, x.cells.filter((c) => c.file_path).length)}</li>`; })}</ul>
+          <p class="muted small">${solutions.filter((x) => x.ready && sketchers.some((m) => m.id === x.member_id)).length} of ${sketchers.length} done</p>
         </section>`}
     </div>`;
 }

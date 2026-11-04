@@ -484,3 +484,8 @@ textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-h
 .cell-grip:hover, .cell-grip:focus-visible { border-color: var(--brand); color: var(--brand); outline: none; }
 .cell-grip:active { cursor: grabbing; }
 .cell-drop.over { border-color: var(--brand); border-style: dashed; background: var(--brand-soft); box-shadow: 0 0 0 3px var(--brand-soft); }
+
+/* Sketch steps: "I'm done" */
+.done-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+.done-bar.is-done { border-color: color-mix(in srgb, var(--ok) 40%, #fff); background: var(--ok-soft); }
+.done-check { width: 24px; height: 24px; border-radius: 50%; background: var(--ok); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; flex: none; }
