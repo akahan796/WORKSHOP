@@ -12,6 +12,7 @@ import { CoverStage, IntroStage, ResearchStage, HmwStage, ComingSoonStage } from
 import { GridStage, VoteHmwStage } from './stages2.js';
 import { Crazy8Stage, Share8Stage, SolutionStage, ReviewStage, VoteSolutionStage } from './stages3.js';
 import { FlowStage, PrototypeStage, DesignReviewStage, ReleasedStage } from './stages4.js';
+import { WarmupStage } from './warmup.js';
 import { isSimulated } from '../ai.js';
 
 function useNow(ms = 1000) {
@@ -91,7 +92,7 @@ export function RoomView({ wsId, user }) {
   const railCollapsed = railPref ? railPref === 'collapsed' : !isOrganizer;
   const setRail = (collapsed) => { const v = collapsed ? 'collapsed' : 'open'; setRailPref(v); try { localStorage.setItem('wai_rail_' + user.id, v); } catch {} };
   const props = { w, data, me, user, step, isOrganizer, isResearcher };
-  const Stage = { intro: IntroStage, research: ResearchStage, hmw: HmwStage, grid: GridStage, vote_hmw: VoteHmwStage,
+  const Stage = { intro: IntroStage, warmup: WarmupStage, research: ResearchStage, hmw: HmwStage, grid: GridStage, vote_hmw: VoteHmwStage,
     crazy8: Crazy8Stage, share8: Share8Stage, solution: SolutionStage, review: ReviewStage, vote_solution: VoteSolutionStage,
     flow: FlowStage, prototype: PrototypeStage, design_review: DesignReviewStage }[step.key] || ComingSoonStage;
   // Participants released after the flow step see a thank-you screen from then on.

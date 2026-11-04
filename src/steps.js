@@ -1,8 +1,12 @@
 // The workshop agenda, from the Design Thinking Workshop Runbook. `phase` is the
 // build phase that implements the step's interactive stage (see SPEC.md).
+// `optional` steps are off unless the organizer turns them on, and a workshop
+// length (below) leaves them as they are.
 export const STEPS = [
   { key: 'intro', title: 'Introduction', minutes: 15, phase: 1,
     blurb: 'Open with introductions and orient the group: who we are, the project, the workshop overview, rules and what to expect.' },
+  { key: 'warmup', title: 'Warm-Up Exercise', minutes: 10, phase: 1, optional: true,
+    blurb: 'A creative warm-up: turn 16 empty circles into as many different drawings as you can (a flower, a wheel, a clock, a balloon…), on screen or on a printed sheet.' },
   { key: 'research', title: 'UX Research Share Out', minutes: 60, phase: 1,
     blurb: 'Research presents the findings. Everyone else silently captures pain points, opportunities and observations, one idea per sticky. Q&A at the end.' },
   { key: 'hmw', title: 'How Might We', minutes: 20, phase: 1,
@@ -48,6 +52,7 @@ export const DURATIONS = [
 const DURATION_MINUTES = {
   //              focused standard extended immersive
   intro:         [15, 20, 30, 30],
+  warmup:        [10, 10, 15, 15],
   research:      [60, 90, 120, 150],
   hmw:           [30, 40, 45, 60],
   grid:          [20, 30, 40, 45],
@@ -64,17 +69,20 @@ const DURATION_MINUTES = {
 export const DEFAULT_DURATION = 1; // Standard
 
 // The agenda for a length: every step, the ones that don't fit switched off
-// (they keep their usual minutes for when they're switched back on).
-export function durationAgenda(i) {
+// (they keep their usual minutes for when they're switched back on). Optional
+// steps stay on or off as they are in `current`.
+export function durationAgenda(i, current = []) {
   return STEPS.map((s) => {
     const m = DURATION_MINUTES[s.key][i];
-    return { key: s.key, enabled: m > 0, minutes: m || s.minutes };
+    const enabled = s.optional ? !!current.find((a) => a.key === s.key)?.enabled : m > 0;
+    return { key: s.key, enabled, minutes: m || s.minutes };
   });
 }
 
 // The length an agenda was set to, or -1 once a step has been changed by hand.
+// Turning an optional step on or off doesn't count as a change.
 export function durationOf(agenda) {
-  return DURATIONS.findIndex((_, i) => durationAgenda(i).every((t) => {
+  return DURATIONS.findIndex((_, i) => durationAgenda(i, agenda).every((t) => {
     const a = agenda.find((x) => x.key === t.key);
     return a && a.enabled === t.enabled && (!t.enabled || Number(a.minutes) === t.minutes);
   }));
@@ -97,10 +105,23 @@ export function defaultAgenda() {
 
 export const fmtMinutes = (n) => (n >= 60 ? `${Math.floor(n / 60)}h${n % 60 ? ` ${n % 60}m` : ''}` : `${n}m`);
 
+// A workshop's saved agenda with every step in it: steps added in a later version
+// go in their place in STEPS order, optional ones switched off.
+export function normalizeAgenda(saved) {
+  if (!saved || !saved.length) return defaultAgenda();
+  const byKey = Object.fromEntries(saved.map((a) => [a.key, a]));
+  const list = saved.filter((a) => STEP_BY_KEY[a.key]);
+  STEPS.forEach((s, i) => {
+    if (byKey[s.key]) return;
+    const prev = i ? list.findIndex((a) => a.key === STEPS[i - 1].key) : -1;
+    list.splice(prev + 1, 0, { key: s.key, enabled: !s.optional, minutes: s.minutes });
+  });
+  return list;
+}
+
 // The enabled steps in order, each merged with its definition.
 export function activeSteps(workshop) {
-  const agenda = workshop.agenda && workshop.agenda.length ? workshop.agenda : defaultAgenda();
-  return agenda.filter((a) => a.enabled && STEP_BY_KEY[a.key]).map((a) => ({ ...STEP_BY_KEY[a.key], minutes: a.minutes }));
+  return normalizeAgenda(workshop.agenda).filter((a) => a.enabled).map((a) => ({ ...STEP_BY_KEY[a.key], minutes: a.minutes }));
 }
 
 export const DEFAULT_RULES = [

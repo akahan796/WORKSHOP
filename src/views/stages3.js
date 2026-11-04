@@ -6,7 +6,7 @@ import { backend } from '../backend/index.js';
 import { Avatar, Empty, AiButton, Modal, useCopy } from './ui.js';
 import { tallyItems, DECIDER_WEIGHT, canMemberVote, synthCrazy8, synthSketchVotes, synthSolutions, synthComments, aiDecideSolution } from '../ai.js';
 
-const IMAGE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/svg+xml': 'svg' };
+export const IMAGE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/svg+xml': 'svg' };
 const MAX_FRAMES = 6;
 const SLOT_TYPE = 'application/x-sketch-slot'; // drag data when moving a sketch between slots
 // The cells with slots a and b swapped (out-of-range moves change nothing).
@@ -126,7 +126,7 @@ function useBulkUpload({ w, me, cells, max, save }) {
 }
 
 // "Upload several": choose or drop many images at once.
-function BulkUpload({ status, onFiles, hint }) {
+export function BulkUpload({ status, onFiles, hint }) {
   const [over, setOver] = useState(false);
   return html`
     <label class=${cx('bulk-drop', over && 'over', status.busy && 'busy')}
@@ -194,7 +194,7 @@ function CellEditor({ cell, url, label, index, onFile, onFiles, onMove, onCaptio
 
 // "I'm done": shown once the participant has added at least one sketch. Sets the
 // sheet's `ready` flag so the facilitator knows not to expect more from them.
-function DoneBar({ sheet, count, onChange, what }) {
+export function DoneBar({ sheet, count, onChange, what }) {
   if (!count) return null;
   const done = !!sheet?.ready;
   return html`
@@ -208,7 +208,7 @@ function DoneBar({ sheet, count, onChange, what }) {
 }
 
 // Facilitator view of one sketcher's status.
-const doneStatus = (x, n) => (x?.ready ? html`<span class="pill pill-live">Done</span>` : n ? html`<span class="pill">Sketching</span>` : html`<span class="pill pill-hidden">Not started</span>`);
+export const doneStatus = (x, n) => (x?.ready ? html`<span class="pill pill-live">Done</span>` : n ? html`<span class="pill">Sketching</span>` : html`<span class="pill pill-hidden">Not started</span>`);
 
 // Dots on a vote target: mine always, everyone's when revealed (Decider in purple).
 function Dots({ votes, me, show, authors }) {

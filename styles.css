@@ -495,3 +495,21 @@ textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-h
 .theme-item.on { background: var(--brand-soft); }
 .theme-check { width: 14px; color: var(--brand); font-weight: 700; }
 .theme-swatch { width: 26px; height: 26px; border-radius: 6px; flex: none; border: 1px solid rgba(0,0,0,.12); }
+
+/* Warm-Up Exercise */
+.warmup-intro { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.warmup-intro p { margin: 0; max-width: 680px; color: var(--muted); }
+.warmup-board { --board: max(360px, min(720px, calc(100vh - 240px))); display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.warmup-tools { width: 100%; max-width: max(var(--board), 560px); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.warmup-colors { display: flex; gap: 6px; }
+.warmup-color { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; padding: 0; }
+.warmup-color.on { box-shadow: 0 0 0 2px var(--text); }
+.warmup-widths button { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; }
+.warmup-dot { display: inline-block; border-radius: 50%; background: currentColor; }
+.warmup-canvas { width: 100%; max-width: var(--board); aspect-ratio: 1; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); touch-action: none; cursor: crosshair; box-shadow: var(--shadow); }
+.warmup-canvas.erasing { cursor: cell; }
+.warmup-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-top: 12px; }
+.warmup-thumb { position: relative; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.warmup-thumb img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 8px; cursor: zoom-in; }
+.warmup-remove { position: absolute; top: 4px; right: 4px; background: rgba(255,255,255,.9); }
+.pill-optional { background: var(--brand-soft); color: var(--brand); }
