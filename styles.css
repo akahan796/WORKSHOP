@@ -503,3 +503,5 @@ textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-h
 .theme-swatch-soft { background: linear-gradient(135deg, #EEF1F6 50%, #fff 50%); border-radius: 50%; box-shadow: inset 0 0 0 4px #0A5DFF22; }
 .theme-swatch-crisp { background: linear-gradient(135deg, #FAFAFA 50%, #111 50%); border-radius: 3px; }
 .theme-swatch-studio { background: conic-gradient(#E8505B 0 25%, #F5C55A 0 50%, #4FBE8C 0 75%, #8B5A3C 0); border-radius: 10px; }
+.theme-swatch-refined { background: #fff; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(16,24,40,.12); position: relative; }
+.theme-swatch-refined::after { content: 'Aa'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 600 11px Inter, Arial, sans-serif; color: #101828; }

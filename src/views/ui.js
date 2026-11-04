@@ -21,6 +21,7 @@ export function Header({ user, children, menu = [] }) {
 // is per browser and is applied before first paint by index.html.
 export const THEMES = [
   { key: 'default', label: 'Default', hint: 'The current look' },
+  { key: 'refined', label: 'Refined', hint: 'Lighter type, finer controls, more air' },
   { key: 'soft', label: 'Soft modern', hint: 'Rounded white cards on cool gray' },
   { key: 'crisp', label: 'Crisp product', hint: 'Hairlines, tight corners, mostly mono' },
   { key: 'studio', label: 'Workshop studio', hint: 'Warm paper and the diamond colors' },
