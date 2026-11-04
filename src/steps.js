@@ -9,27 +9,27 @@ export const STEPS = [
     blurb: 'A creative warm-up: turn 16 empty circles into as many different drawings as you can (a flower, a wheel, a clock, a balloon…), on screen or on a printed sheet.' },
   { key: 'research', title: 'UX Research Share Out', minutes: 60, phase: 1,
     blurb: 'Research presents the findings. Everyone else silently captures pain points, opportunities and observations, one idea per sticky. Q&A at the end.' },
-  { key: 'hmw', title: 'How Might We', minutes: 20, phase: 1,
+  { key: 'hmw', title: 'How Might We', minutes: 20, requires: ['research'], phase: 1,
     blurb: 'Using your color-coded stickies, turn what you heard into "How might we…" statements, one per sticky.' },
-  { key: 'grid', title: 'Impact / Effort Grid', minutes: 20, phase: 2,
+  { key: 'grid', title: 'Impact / Effort Grid', minutes: 20, requires: ['hmw'], phase: 2,
     blurb: 'All HMWs start in one pile. AI places each one on the Impact/Effort grid, then the group adjusts.' },
-  { key: 'vote_hmw', title: 'Vote on HMWs', minutes: 15, phase: 2,
+  { key: 'vote_hmw', title: 'Vote on HMWs', minutes: 15, requires: ['hmw'], phase: 2,
     blurb: 'Dot vote to narrow down to the most important problem or opportunity. The Decider votes in purple and breaks ties. Align on one HMW.' },
   { key: 'crazy8', title: 'Crazy 8s', minutes: 8, phase: 3,
     blurb: 'Eight sketches in eight minutes, one per cell, made with your Crazy 8s AI skill.' },
-  { key: 'share8', title: 'Share Crazy 8s', minutes: 30, phase: 3,
+  { key: 'share8', title: 'Share Crazy 8s', minutes: 30, requires: ['crazy8'], phase: 3,
     blurb: 'Each person takes 3 minutes to share and answer questions. Everyone gets 3 votes for individual sketches; voting for your own is fine.' },
   { key: 'solution', title: 'Solution Sketch', minutes: 60, phase: 3,
     blurb: 'Pick the strongest idea and develop it with the solution-sketch skill: a clear title, 3+ frames, pictures and words. Riffing is encouraged.' },
-  { key: 'review', title: 'Review Solution Sketches', minutes: 20, phase: 3,
+  { key: 'review', title: 'Review Solution Sketches', minutes: 20, requires: ['solution'], phase: 3,
     blurb: "Review each other's sketches and finalize your own." },
-  { key: 'vote_solution', title: 'Vote on a Direction', minutes: 20, phase: 3,
+  { key: 'vote_solution', title: 'Vote on a Direction', minutes: 20, requires: ['solution'], phase: 3,
     blurb: 'Dot vote on the most compelling solution sketches and share your reasoning. The Decider makes the final call; it may take two rounds.' },
   { key: 'flow', title: 'Design Details & User Flow', minutes: 45, phase: 4,
     blurb: 'The group aligns on implementation details and maps the user flow. AI drafts the flow from the chosen sketch. Non-design participants are released after this.' },
-  { key: 'prototype', title: 'AI Prototype', minutes: 30, phase: 4,
+  { key: 'prototype', title: 'AI Prototype', minutes: 30, requires: ['flow'], phase: 4,
     blurb: 'AI generates an interactive prototype from the chosen direction and user flow.' },
-  { key: 'design_review', title: 'Design Review', minutes: 30, phase: 4,
+  { key: 'design_review', title: 'Design Review', minutes: 30, requires: ['prototype'], phase: 4,
     blurb: 'Review the prototype together and capture feedback.' },
 ];
 
@@ -37,6 +37,78 @@ export const STEPS = [
 export const BUILT_PHASE = 4;
 
 export const STEP_BY_KEY = Object.fromEntries(STEPS.map((s) => [s.key, s]));
+
+// Dependencies: a step with `requires` only makes sense when those steps run too
+// (Share Crazy 8s needs the sketches from Crazy 8s). Turning a step off turns off
+// everything that needs it; turning a step on turns on what it needs.
+const closure = (key, next) => {
+  const seen = new Set(), todo = [key];
+  while (todo.length) for (const k of next(todo.pop())) if (!seen.has(k)) { seen.add(k); todo.push(k); }
+  return seen;
+};
+const needsOf = (key) => (STEP_BY_KEY[key].requires || []);
+const neededBy = (key) => STEPS.filter((s) => (s.requires || []).includes(key)).map((s) => s.key);
+// Every step this one depends on, and every step that depends on it (directly or not).
+export const stepAncestors = (key) => closure(key, needsOf);
+export const stepDependents = (key) => closure(key, neededBy);
+
+// The agenda with `key` switched on or off and the knock-on changes made.
+// `changed` lists the other steps that were switched along with it.
+export function setStepEnabled(agenda, key, on) {
+  const affected = on ? stepAncestors(key) : stepDependents(key);
+  const changed = [];
+  const next = agenda.map((a) => {
+    if (a.key === key) return { ...a, enabled: on };
+    if (affected.has(a.key) && a.enabled !== on) { changed.push(a.key); return { ...a, enabled: on }; }
+    return a;
+  });
+  return { agenda: next, changed };
+}
+
+// How the agenda rows draw their links: consecutive linked steps form one card, and
+// each step is indented under what it needs. `cells` are the tree connectors to the
+// left of a row, one per depth: 'pass' (a line continuing down), 'mid' / 'last' (an
+// elbow, with or without more siblings below) or 'empty'.
+const depthOf = (key) => (needsOf(key).length ? 1 + Math.max(...needsOf(key).map(depthOf)) : 0);
+const rootOf = (key) => (needsOf(key).length ? rootOf(needsOf(key)[0]) : key);
+export function linkLayout(agenda) {
+  const comp = agenda.map((a) => (needsOf(a.key).length || neededBy(a.key).length ? rootOf(a.key) : null));
+  return agenda.map((a, i) => {
+    if (!comp[i]) return null;
+    const depth = depthOf(a.key);
+    // The rows after this one in its chain, as { depth, on }.
+    const below = [];
+    for (let j = i + 1; j < agenda.length && comp[j] === comp[i]; j++) below.push({ depth: depthOf(agenda[j].key), on: !!agenda[j].enabled });
+    // Is any step at `col` further down, before the chain climbs back above it, switched on?
+    const laterOn = (col) => { for (const r of below) { if (r.depth < col) return false; if (r.depth === col && r.on) return true; } return false; };
+    const cells = [], dim = [];
+    for (let col = 1; col <= depth; col++) {
+      const sibling = below.find((r) => r.depth <= col)?.depth === col;
+      if (col < depth) { cells.push(sibling ? 'pass' : 'empty'); dim.push({ top: !laterOn(col), tail: !laterOn(col) }); }
+      else if (sibling) { cells.push('mid'); dim.push({ top: !(a.enabled || laterOn(col)), tail: !laterOn(col) }); }
+      else { cells.push('last'); dim.push({ top: !a.enabled, tail: true }); }
+    }
+    // Lines only run blue to steps that are on; `dim` marks the stretches that lead nowhere live.
+    const down = below[0]?.depth > depth;
+    let kids = false;
+    for (const r of below) { if (r.depth <= depth) break; if (r.depth === depth + 1 && r.on) kids = true; }
+    return { first: comp[i - 1] !== comp[i], last: comp[i + 1] !== comp[i], depth, cells, dim, down, downDim: !kids };
+  });
+}
+
+// The step that took `key` off the agenda with it: its topmost switched-off prerequisite,
+// or null when the step is on or was switched off on its own.
+export function offBecause(agenda, key) {
+  const off = new Set(agenda.filter((a) => !a.enabled).map((a) => a.key));
+  if (!off.has(key)) return null;
+  const causes = [...stepAncestors(key)].filter((k) => off.has(k));
+  return causes.find((k) => ![...stepAncestors(k)].some((x) => off.has(x))) || null;
+}
+
+// Switches off any step whose prerequisite is off (e.g. a length that drops a step).
+export function withDependencies(agenda) {
+  return agenda.reduce((cur, a) => (a.enabled ? cur : setStepEnabled(cur, a.key, false).agenda), agenda);
+}
 
 // Workshop lengths, picked with the slider at the top of the Agenda & Time tab. A day is
 // about 5 hours of activities (the rest is breaks, lunch and changeovers). Each
@@ -78,6 +150,7 @@ export function durationAgenda(i, current = []) {
     return { key: s.key, enabled, minutes: m || s.minutes };
   });
 }
+export const lengthAgenda = (i, current = []) => withDependencies(durationAgenda(i, current));
 
 // The length an agenda was set to, or -1 once a step has been changed by hand.
 // Turning an optional step on or off doesn't count as a change.

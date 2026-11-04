@@ -35,6 +35,8 @@ export const facilitates = (m) => !!m && (m.role === 'organizer' || m.role === '
 export const STICKY_COLORS = ['#FFE27A', '#FFB3C7', '#A8E6A1', '#A9D8FF', '#FFC48C', '#C9F0E8',
   '#FFD1F0', '#D9F59B', '#B9C6FF', '#FFEFB3', '#9BE3DE', '#F5C2A6'];
 export const DECIDER_PURPLE = '#7B2FF7';
+// A voter's dots match their avatar; the Decider's are purple (they count extra).
+export const voteColor = (m) => (m?.is_decider ? DECIDER_PURPLE : m?.color || '#141414');
 
 export function nextColor(members) {
   const used = new Set(members.map((m) => m.color));

@@ -1,7 +1,7 @@
 // Phase 2 stages: Impact/Effort grid and HMW dot voting with the Decider.
-import { html, useState, useEffect, useRef, useMemo, cx, DECIDER_PURPLE } from '../lib.js';
+import { html, useState, useEffect, useRef, useMemo, cx, DECIDER_PURPLE, voteColor } from '../lib.js';
 import { backend } from '../backend/index.js';
-import { Avatar, Empty, AiButton } from './ui.js';
+import { Avatar, Empty, AiButton, VoteTray } from './ui.js';
 import { QUADRANTS, quadrantOf, placeGrid, tally, synthVotes, aiDecide, DECIDER_WEIGHT, canMemberVote } from '../ai.js';
 
 const QUAD_ORDER = ['quick', 'big', 'fill', 'pit'];
@@ -132,7 +132,8 @@ export function VoteHmwStage({ w, data, me, isOrganizer }) {
   const finalSticky = final && hmws.find((s) => s.id === final.sticky_id);
 
   const addDot = (s) => left > 0 && backend.addVotes([{ workshop_id: w.id, member_id: me.id, target_id: s.id, round: 'hmw' }]);
-  const dotColor = (v) => (authors[v.member_id]?.is_decider ? DECIDER_PURPLE : '#141414');
+  const dotColor = (v) => voteColor(authors[v.member_id]);
+  const dropVote = (id) => canVote && left > 0 && backend.addVotes([{ workshop_id: w.id, member_id: me.id, target_id: id, round: 'hmw' }]);
   const choose = (s, by) => backend.setDecision(w.id, 'hmw_final', { sticky_id: s.id, by, rationale: '' });
 
   return html`
@@ -150,7 +151,7 @@ export function VoteHmwStage({ w, data, me, isOrganizer }) {
         <div>
           <h3>Dot vote on the most important problem or opportunity</h3>
           <p class="muted small">
-            ${canVote ? html`You have <b>${left}</b> of ${dots} dots left. Click a card to add a dot; click your dot to take it back. Several dots on one HMW is fine.` : 'Participants are voting.'}
+            ${canVote ? html`Drag your dots onto the HMWs you care about most (or click a card). Click a dot you placed to take it back. Several dots on one HMW is fine.` : 'Participants are voting.'}
             ${isDecider ? html` <b style=${{ color: DECIDER_PURPLE }}>You're the Decider: your dots are purple and count ${DECIDER_WEIGHT}×.</b>` : decider ? html` Purple dots are ${decider.name}'s (the Decider), counting ${DECIDER_WEIGHT}×.` : ''}
           </p>
         </div>
@@ -164,6 +165,7 @@ export function VoteHmwStage({ w, data, me, isOrganizer }) {
           </div>`}
       </div>
 
+      ${canVote && hmws.length > 0 && html`<${VoteTray} me=${me} total=${dots} left=${left} what="an HMW" onDrop=${dropVote} onClear=${() => backend.deleteVotes(w.id, 'hmw', [me.id])} />`}
       ${!hmws.length ? html`<${Empty} title="No HMWs to vote on yet" />` : html`
         <div class="vote-layout">
           <div class="vote-cards">
@@ -173,7 +175,7 @@ export function VoteHmwStage({ w, data, me, isOrganizer }) {
               const q = quadrantOf(s.data?.grid);
               return html`
                 <article key=${s.id} class=${cx('vote-card', canVote && left > 0 && 'can-vote', finalSticky && finalSticky.id === s.id && 'is-final')}
-                  style=${{ borderLeftColor: authors[s.member_id]?.color }} onClick=${() => canVote && addDot(s)}>
+                  data-vote-target=${canVote && left > 0 ? s.id : null} style=${{ borderLeftColor: authors[s.member_id]?.color }} onClick=${() => canVote && addDot(s)}>
                   <div class="row between">${q ? html`<span class=${'pill quad-pill-' + q}>${QUADRANTS[q].label}</span>` : html`<span class="pill">Unplaced</span>`}<span class="muted small">${authors[s.member_id]?.name}</span></div>
                   <p>${s.text}</p>
                   <div class="dots" onClick=${(e) => e.stopPropagation()}>

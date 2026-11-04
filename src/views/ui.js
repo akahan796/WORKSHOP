@@ -1,5 +1,5 @@
 // Shared UI pieces.
-import { html, useState, useEffect, initials, cx, navigate } from '../lib.js';
+import { html, useState, useEffect, initials, cx, navigate, voteColor } from '../lib.js';
 import { backend } from '../backend/index.js';
 
 // `menu`: extra items for the user dropdown, [{ label, onClick }] (falsy entries skipped).
@@ -155,4 +155,52 @@ export function MoreTip({ text, label = 'More' }) {
       onMouseEnter=${show} onMouseLeave=${() => setPos(null)} onFocus=${show} onBlur=${() => setPos(null)}>${label}</a>
     ${pos && html`<span class="more-tip-box" role="tooltip" style=${pos}>${text}</span>`}
   </span>`;
+}
+
+// The voter's dots. Drag one onto anything marked data-vote-target="<id>" to vote;
+// onDrop gets that id. Pointer events, so it works with a mouse, a pen or a finger.
+export function VoteTray({ me, total, left, what, onDrop, onClear }) {
+  if (!me) return null;
+  const color = voteColor(me);
+  function start(e) {
+    if (e.button > 0) return;
+    e.preventDefault();
+    const src = e.currentTarget;
+    const ghost = src.cloneNode();
+    ghost.className = 'vdot vdot-ghost';
+    document.body.appendChild(ghost);
+    src.classList.add('dragging');
+    document.body.classList.add('voting-drag');
+    let over = null;
+    const place = (ev) => {
+      ghost.style.transform = `translate(${ev.clientX - 15}px, ${ev.clientY - 15}px)`;
+      ghost.style.display = 'none';
+      const t = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-vote-target]') || null;
+      ghost.style.display = '';
+      if (t !== over) { over?.classList.remove('drop-over'); t?.classList.add('drop-over'); over = t; }
+    };
+    const end = (ev) => {
+      removeEventListener('pointermove', place); removeEventListener('pointerup', end); removeEventListener('pointercancel', end);
+      over?.classList.remove('drop-over');
+      ghost.remove(); src.classList.remove('dragging'); document.body.classList.remove('voting-drag');
+      if (over && ev.type === 'pointerup') onDrop(over.dataset.voteTarget);
+    };
+    addEventListener('pointermove', place); addEventListener('pointerup', end); addEventListener('pointercancel', end);
+    place(e);
+  }
+  return html`
+    <div class="vote-tray" aria-label="Your voting dots">
+      <${Avatar} name=${me.name} color=${me.color} size=${30} />
+      <div class="vote-tray-dots">
+        ${Array.from({ length: total }, (_, i) => i < left
+          ? html`<span key=${i} class="vdot vdot-drag" style=${{ background: color }} onPointerDown=${start} title="Drag onto ${what}"></span>`
+          : html`<span key=${i} class="vdot vdot-used" style=${{ borderColor: color }} title="Placed"></span>`)}
+      </div>
+      <div class="vote-tray-text">
+        <span class="vote-tray-count"><b>${left} of ${total}</b> dot${total === 1 ? '' : 's'} left</span>
+        <span class="muted small">${left > 0 ? `Drag a dot onto ${what}, or just click ${what}.` : `All placed. Click one of your dots on ${what} to take it back.`}</span>
+      </div>
+      ${total - left > 0 && onClear && html`<button class="btn btn-sm btn-ghost vote-clear"
+        onClick=${() => (total - left < 2 || confirm(`Clear all ${total - left} of your votes?`)) && onClear()}>Clear my votes</button>`}
+    </div>`;
 }

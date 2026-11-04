@@ -72,7 +72,7 @@ textarea { resize: vertical; }
 .field-label { font-weight: 700; font-size: 13px; } .field-hint { color: var(--muted); font-size: 12px; }
 
 /* Setup */
-.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow-x: auto; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
 .tab { border: 0; background: none; padding: 10px 14px; cursor: pointer; font-weight: 700; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
 .tab-on { color: var(--brand); border-bottom-color: var(--brand); }
 .setup-panel { padding: 24px; }
@@ -528,3 +528,73 @@ textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-h
 .idea-prompt.edge-bottom.edge-left { transform: translate(-22%, -112%); } .idea-prompt.edge-bottom.edge-right { transform: translate(-78%, -112%); }
 .idea-busy { position: absolute; transform: translate(-50%, -50%); background: var(--brand); color: #fff; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 999px; pointer-events: none; animation: idea-pulse 1.2s ease-in-out infinite; }
 @keyframes idea-pulse { 50% { opacity: .55; } }
+
+/* Agenda: linked steps drawn as one connected card. Lines run through the checkboxes:
+   a step's stem leaves its checkbox, and each dependent's elbow ends at its own checkbox.
+   The checkbox centre sits 23px below the row top; columns are 28px wide. :root beats refined.css. */
+:root .agenda-row { padding-top: 14px; padding-bottom: 14px; }
+.gutter { display: flex; flex: none; align-self: stretch; margin: -14px 0; }
+.cb { display: flex; flex-direction: column; align-items: center; padding-top: 15px; }
+.cb input { width: 16px; height: 16px; margin: 0; flex: none; }
+.cb .stem { flex: 1; width: 2px; background: var(--brand); opacity: .7; }
+/* A line that only leads to steps that are off goes grey and dashed (d-top / d-tail / dim). */
+.cb .stem.dim { background: none; border-left: 2px dashed var(--muted); width: 0; opacity: 1; }
+.tree-cell { position: relative; flex: none; width: 28px; }
+.tree-cell::before, .tree-cell::after { content: ''; position: absolute; border: 0 solid var(--brand); opacity: .7; }
+.tree-pass::before { left: 7px; top: 0; bottom: 0; border-left-width: 2px; }
+.tree-mid::before { left: 7px; top: 0; height: 24px; border-left-width: 2px; }
+.tree-mid .tail { position: absolute; left: 7px; top: 24px; bottom: 0; border-left: 2px solid var(--brand); opacity: .7; }
+.tree-mid::after { left: 7px; right: 0; top: 22px; border-top-width: 2px; }
+.tree-last::before { left: 7px; right: 0; top: 0; height: 24px; border-left-width: 2px; border-bottom-width: 2px; border-bottom-left-radius: 8px; }
+/* Only the elbow into a step that's off goes grey and dashed; a line passing by to a later step stays solid. */
+.agenda-row.off .tree-mid::after { border-color: var(--muted); border-top-style: dashed; opacity: 1; }
+.tree-last.d-top::before { border-color: var(--muted); border-left-style: dashed; border-bottom-style: dashed; opacity: 1; }
+.tree-pass.d-top::before, .tree-mid.d-top::before { border-color: var(--muted); border-left-style: dashed; opacity: 1; }
+.tree-mid.d-tail .tail { border-color: var(--muted); border-left-style: dashed; opacity: 1; }
+.agenda-day { position: relative; }
+.gutter-abs { position: absolute; left: 16px; top: 0; bottom: 0; margin: 0; }
+.agenda-link-label { list-style: none; display: flex; align-items: center; gap: 5px; margin: 0; padding: 10px 16px 0; background: #fff; border-top: 1px solid var(--line); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--brand); }
+:root .agenda-row.linked { border-bottom: 0; transition: background .3s; }
+:root .agenda-row.linked.link-last { border-bottom: 1px solid var(--line); }
+.pill-linked { background: var(--brand); color: #fff; }
+@keyframes link-flash { 0% { background: var(--warn-soft); } 100% { } }
+.agenda-row.flash { animation: link-flash 1.4s ease-out; }
+/* Checkbox and step number share a centre line (23px below the row top); the title's top lines up with the checkbox's top. */
+:root .agenda-row .step-num { align-self: flex-start; margin-top: -3px; }
+:root .agenda-row .grow { margin-top: -5px; }
+:root .agenda-edit .agenda-day { padding-left: 84px; } /* the title column of a top-level step, clear of any link lines */
+.gutter-abs { left: 16px; }
+.gutter-abs { z-index: 1; bottom: -1px; } /* over the header's bottom divider, not under it */
+/* An 8px gap between a step's title and each badge (no space character in the markup). */
+:root .agenda-row .grow > .pill { margin-left: 8px; }
+/* Minutes field: no spinner arrows, sized to a three-digit number (up to 240). */
+:root .agenda-edit .agenda-row .minutes input:not([type=range]) { width: calc(3ch + 24px); padding-left: 8px; padding-right: 8px; text-align: center; -moz-appearance: textfield; appearance: textfield; } /* hugs a 3-digit number */
+.minutes input::-webkit-outer-spin-button, .minutes input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* Minutes field: a clear blue state while it's being edited. */
+:root .agenda-edit .agenda-row .minutes input:not([type=range]):focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(var(--brand-rgb), .25); outline: 0; }
+
+/* 8px between the length name and its day count, like the badge gaps. */
+.duration-days { margin-left: 8px; }
+
+/* Drag-to-vote: the dot tray, the dots (in each voter's avatar colour) and the drop highlight. */
+.vote-tray { display: flex; align-items: center; gap: 14px; position: sticky; top: 8px; z-index: 5; margin-bottom: 12px; padding: 10px 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow, 0 2px 8px rgba(0,0,0,.08)); }
+.vote-tray-dots { display: flex; flex-wrap: wrap; gap: 8px; }
+.vote-tray-text { display: flex; flex-direction: column; line-height: 1.3; }
+.vdot { width: 30px; height: 30px; border-radius: 50%; box-sizing: border-box; display: inline-block; flex: none; }
+.vdot-drag { border: 2px solid #fff; box-shadow: 0 0 0 1.5px rgba(20,20,20,.5), 0 2px 4px rgba(0,0,0,.2); cursor: grab; touch-action: none; user-select: none; transition: transform .12s; }
+.vdot-drag:hover { transform: scale(1.1); }
+.vdot-drag.dragging { opacity: .35; cursor: grabbing; }
+.vdot-used { border: 2px dashed; opacity: .6; }
+.vdot-ghost { position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none; border: 2px solid #fff; box-shadow: 0 0 0 1.5px rgba(20,20,20,.5), 0 8px 18px rgba(0,0,0,.3); transform-origin: center; cursor: grabbing; }
+body.voting-drag, body.voting-drag * { cursor: grabbing !important; user-select: none; }
+body.voting-drag [data-vote-target] { outline: 2px dashed var(--brand-border, var(--brand)); outline-offset: 2px; }
+body.voting-drag [data-vote-target].drop-over { outline-style: solid; background: var(--brand-soft); } /* same blue and width as the dashed outline, just solid */
+.dots .dot { width: 18px; height: 18px; border: 2px solid #fff; box-shadow: 0 0 0 1.5px rgba(20,20,20,.5); }
+.vote-tray-count { white-space: nowrap; }
+
+/* Voting from the enlarged sketch */
+.lightbox-img.has-vote { max-height: calc(90vh - 230px); }
+.lightbox-vote { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.vdot-sm { width: 24px; height: 24px; border: 2px solid #fff; box-shadow: 0 0 0 1.5px rgba(20,20,20,.5); }
+.vote-clear { margin-left: auto; white-space: nowrap; }

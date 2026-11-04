@@ -1,7 +1,7 @@
 // Organizer workshop setup: details, introduction, agenda, people & invites, research.
 import { html, useState, useEffect, navigate, nextColor, inviteUrl, DISCIPLINES, DISCIPLINE_OPTIONS, AI_DISCIPLINE, roleLabel, cx, fmtDate, uid } from '../lib.js';
 import { backend } from '../backend/index.js';
-import { STEPS, BUILT_PHASE, defaultAgenda, normalizeAgenda, defaultIntro, introSlideOrder, DURATIONS, DAY_MINUTES, durationAgenda, durationOf, agendaDays, fmtMinutes } from '../steps.js';
+import { STEPS, BUILT_PHASE, defaultAgenda, normalizeAgenda, defaultIntro, introSlideOrder, DURATIONS, DAY_MINUTES, durationAgenda, lengthAgenda, durationOf, agendaDays, fmtMinutes, setStepEnabled, linkLayout, offBecause, STEP_BY_KEY } from '../steps.js';
 import { useWorkshop } from '../useWorkshop.js';
 import { Field, SaveOnBlur, Avatar, useCopy, Empty, Modal, MoreTip } from './ui.js';
 import { generateSynthetic, isSimulated } from '../ai.js';
@@ -189,27 +189,38 @@ function Skills({ w, save }) {
     </div>`;
 }
 
+const LinkIcon = () => html`<svg class="link-icon" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>`;
+
 function Agenda({ w, save }) {
   const saved = normalizeAgenda(w.agenda);
   // While the slider is being dragged the tiles follow it; the length is saved on release.
   const [preview, setPreview] = useState(null);
   useEffect(() => setPreview(null), [w.agenda]);
-  const agenda = preview != null ? durationAgenda(preview, saved) : saved;
+  const agenda = preview != null ? lengthAgenda(preview, saved) : saved;
   const picked = preview != null ? preview : durationOf(saved);
   const update = (key, patch) => save({ agenda: agenda.map((a) => (a.key === key ? { ...a, ...patch } : a)) });
+  // Linked steps switch together (see `requires` in steps.js); the ones that moved flash briefly.
+  const [moved, setMoved] = useState(null);
+  useEffect(() => { if (!moved) return; const t = setTimeout(() => setMoved(null), 4000); return () => clearTimeout(t); }, [moved]);
+  const toggle = (key, on) => {
+    const r = setStepEnabled(agenda, key, on);
+    setMoved(r.changed.length ? { key, on, changed: r.changed } : null);
+    save({ agenda: r.agenda });
+  };
+  const layout = linkLayout(agenda);
   const total = agenda.filter((a) => a.enabled).reduce((n, a) => n + Number(a.minutes || 0), 0);
   const byKey = Object.fromEntries(STEPS.map((s) => [s.key, s]));
   const days = agendaDays(agenda);
   // A hand-edited agenda keeps the slider at the length closest to its total.
   const near = picked >= 0 ? picked : DURATIONS.reduce((b, d, i) => (Math.abs(d.days * DAY_MINUTES - total) < Math.abs(DURATIONS[b].days * DAY_MINUTES - total) ? i : b), 0);
   const d = picked >= 0 ? DURATIONS[picked] : null;
-  const commit = () => { if (preview != null && preview !== durationOf(saved)) save({ agenda: durationAgenda(preview, saved) }); else setPreview(null); };
+  const commit = () => { if (preview != null && preview !== durationOf(saved)) save({ agenda: lengthAgenda(preview, saved) }); else setPreview(null); };
   const dayLabel = (n) => `Day ${n}`;
   return html`
     <div class="stack">
       <div class="duration">
         <div class="duration-head">
-          <div><span class="duration-name">${d ? d.name : 'Custom'}</span> <span class="muted">${d ? `${d.days} ${d.days === 1 ? 'day' : 'days'}` : 'your own step times'}</span></div>
+          <div><span class="duration-name">${d ? d.name : 'Custom'}</span><span class="muted duration-days">${d ? `${d.days} ${d.days === 1 ? 'day' : 'days'}` : 'your own step times'}</span></div>
           <span class="duration-total">${fmtMinutes(total)} of activities</span>
         </div>
         <p class="muted small">${d ? d.blurb : 'Move the slider to set the length again. It sets every step\'s time and turns off what doesn\'t fit.'}</p>
@@ -220,22 +231,27 @@ function Agenda({ w, save }) {
           onPointerUp=${commit} onKeyUp=${commit} onBlur=${commit} />
         <div class="duration-ticks">
           ${DURATIONS.map((x, i) => html`<button key=${x.key} type="button" class=${cx('duration-tick', i === picked && 'on')}
-            onClick=${() => i !== durationOf(saved) && save({ agenda: durationAgenda(i, saved) })}>
+            onClick=${() => i !== durationOf(saved) && save({ agenda: lengthAgenda(i, saved) })}>
             <b>${x.name}</b><span>${x.days} ${x.days === 1 ? 'day' : 'days'}</span></button>`)}
         </div>
         <p class="muted small">A day is about ${DAY_MINUTES / 60} hours of activities, plus breaks and lunch. You can still change any step below.</p>
       </div>
-      <p class="muted">Turn steps on or off and set how long each runs. Total: <b>${Math.floor(total / 60)}h ${total % 60}m</b></p>
+      <p class="muted">Steps joined by a line are linked: switch one off and the steps under it go with it. Switch one on and the steps above it come back.</p>
       <ol class="agenda-edit">
         ${agenda.map((a, i) => { const s = byKey[a.key]; const day = days[i];
+          const L = layout[i];
           const newDay = day && day !== days.slice(0, i).filter(Boolean).pop() && Math.max(...days.filter(Boolean)) > 1;
           return html`
-          ${newDay && html`<li key=${'day' + day} class="agenda-day">${dayLabel(day)}</li>`}
-          <li key=${a.key} class=${cx('agenda-row', !a.enabled && 'off')}>
-            <input type="checkbox" checked=${a.enabled} onChange=${(e) => update(a.key, { enabled: e.target.checked })} aria-label=${'Include ' + s.title} />
+          ${newDay && html`<li key=${'day' + day} class="agenda-day">${L && L.cells.length > 0 && html`<span class="gutter gutter-abs" aria-hidden="true">${L.cells.map((c, n) => html`<span key=${n} class=${cx('tree-cell', 'tree-' + (c === 'empty' ? 'empty' : 'pass'), c !== 'empty' && L.dim[n].top && 'd-top')}></span>`)}</span>`}${dayLabel(day)}</li>`}
+          ${L && L.first && html`<li key=${'link' + a.key} class="agenda-link-label" aria-hidden="true">${LinkIcon()} Linked steps</li>`}
+          <li key=${a.key} class=${cx('agenda-row', !a.enabled && 'off', L && 'linked', L && L.first && 'link-first', L && L.last && 'link-last', moved && (moved.key === a.key || moved.changed.includes(a.key)) && 'flash')}>
+            <span class="gutter">
+              ${L && L.cells.map((c, n) => html`<span key=${n} class=${cx('tree-cell', 'tree-' + c, L.dim[n].top && 'd-top', L.dim[n].tail && 'd-tail')}>${c === 'mid' && html`<i class="tail"></i>`}</span>`)}
+              <span class="cb"><input type="checkbox" checked=${a.enabled} onChange=${(e) => toggle(a.key, e.target.checked)} aria-label=${'Include ' + s.title + (s.requires ? ', needs ' + s.requires.map((r) => STEP_BY_KEY[r].title).join(', ') : '')} />${L && L.down && html`<i class=${cx('stem', L.downDim && 'dim')}></i>`}</span>
+            </span>
             <span class="step-num">${i + 1}</span>
-            <div class="grow"><b>${s.title}</b>${s.optional && html` <span class="pill pill-optional">Optional</span>`}${s.phase > BUILT_PHASE && html` <span class="pill pill-soon">Coming in phase ${s.phase}</span>`}${!a.enabled && d && !s.optional && html` <span class="pill pill-hidden">Doesn't fit in ${d.name}</span>`}<div class="muted small">${s.blurb}</div></div>
-            <label class="minutes"><input type="number" min="1" max="240" value=${a.minutes} disabled=${!a.enabled} onChange=${(e) => update(a.key, { minutes: Number(e.target.value) })} /> min</label>
+            <div class="grow"><b>${s.title}</b>${s.optional && html`<span class="pill pill-optional">Optional</span>`}${s.phase > BUILT_PHASE && html`<span class="pill pill-soon">Coming in phase ${s.phase}</span>`}${!a.enabled && d && !s.optional && html`<span class="pill pill-hidden">Doesn't fit in ${d.name}</span>`}${offBecause(agenda, a.key) && html`<span class="pill pill-linked">Turned off with ${STEP_BY_KEY[offBecause(agenda, a.key)].title}</span>`}<div class="muted small">${s.blurb}</div></div>
+            <label class="minutes"><input type="number" min="1" max="999" value=${a.minutes} disabled=${!a.enabled} onInput=${(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 3); if (v !== e.target.value) e.target.value = v; }} onChange=${(e) => update(a.key, { minutes: Number(e.target.value) })} /> min</label>
           </li>`; })}
       </ol>
     </div>`;
