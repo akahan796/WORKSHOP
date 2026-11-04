@@ -189,8 +189,8 @@ export const DIAMOND = [
   { key: 'deliver', title: 'Deliver', half: 'Design', caption: 'Solutions that work & feedback', color: '#8B5A3C' },
 ];
 export const STEP_DIAMOND = {
-  research: 'discover',
-  hmw: 'define', grid: 'define', vote_hmw: 'define',
+  research: 'discover', hmw: 'discover',
+  grid: 'define', vote_hmw: 'define',
   crazy8: 'develop', share8: 'develop', solution: 'develop', review: 'develop',
   vote_solution: 'deliver', flow: 'deliver', prototype: 'deliver', design_review: 'deliver',
 };
