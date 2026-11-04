@@ -9,7 +9,7 @@ import { ResearchManager } from './research.js';
 import { PreworkManager, RequestDocsModal } from './prework.js';
 import { DEFAULT_SKILLS, skillFor, isDefaultSkill, downloadSkill } from '../skills.js';
 
-const TABS = [['details', 'Details'], ['intro', 'Introduction'], ['agenda', 'Agenda'], ['people', 'People & invites'], ['research', 'Research'], ['prework', 'Pre-work'], ['skills', 'Skills']];
+const TABS = [['details', 'Details'], ['intro', 'Introduction'], ['agenda', 'Agenda & Time'], ['people', 'People & invites'], ['research', 'Research'], ['prework', 'Pre-work'], ['skills', 'Skills']];
 
 export function SetupView({ wsId, user }) {
   const data = useWorkshop(wsId, user);
@@ -93,8 +93,8 @@ function SlideFields({ s, intro, save }) {
   const set = (k) => (v) => save({ [k]: v });
   if (s.key === 'organizer') return html`<${Field} label="About me (organizer intro)" hint="Who you are and your role in this workshop. If you assign a facilitator in People & invites, the slide shows them as the organizer, with your name in this text replaced by theirs."><${SaveOnBlur} multiline value=${intro.welcome} onSave=${set('welcome')} /><//>`;
   if (s.key === 'project') return html`<${Field} label="Project background" hint="The problem space and why we're here."><${SaveOnBlur} multiline rows="4" value=${intro.background} onSave=${set('background')} /><//>`;
-  if (s.key === 'overview') return html`<${Field} label="Workshop overview" hint="The agenda from the Agenda tab is listed beside it."><${SaveOnBlur} multiline value=${intro.overview} onSave=${set('overview')} /><//>`;
-  if (s.key === 'approach') return html`<${Field} label="Our approach" hint="Shown under the double diamond. The diagram lists the steps from the Agenda tab under Discover, Define, Develop and Deliver."><${SaveOnBlur} multiline value=${intro.approach} onSave=${set('approach')} /><//>`;
+  if (s.key === 'overview') return html`<${Field} label="Workshop overview" hint="The agenda from the Agenda & Time tab is listed beside it."><${SaveOnBlur} multiline value=${intro.overview} onSave=${set('overview')} /><//>`;
+  if (s.key === 'approach') return html`<${Field} label="Our approach" hint="Shown under the double diamond. The diagram lists the steps from the Agenda & Time tab under Discover, Define, Develop and Deliver."><${SaveOnBlur} multiline value=${intro.approach} onSave=${set('approach')} /><//>`;
   if (s.key === 'rules') return html`<${Field} label="Working agreement" hint="One point per line.">
     <${SaveOnBlur} multiline rows="6" value=${(intro.rules || []).join('\n')} onSave=${(v) => save({ rules: v.split('\n').map((x) => x.trim()).filter(Boolean) })} /><//>`;
   if (s.key === 'expectations') return html`<${Field} label="What to expect"><${SaveOnBlur} multiline value=${intro.expectations} onSave=${set('expectations')} /><//>`;

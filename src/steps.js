@@ -34,7 +34,7 @@ export const BUILT_PHASE = 4;
 
 export const STEP_BY_KEY = Object.fromEntries(STEPS.map((s) => [s.key, s]));
 
-// Workshop lengths, picked with the slider at the top of the Agenda tab. A day is
+// Workshop lengths, picked with the slider at the top of the Agenda & Time tab. A day is
 // about 5 hours of activities (the rest is breaks, lunch and changeovers). Each
 // length sets every step's minutes; 0 drops the step because it doesn't fit.
 // Crazy 8s is always 8 minutes: one per sketch.
