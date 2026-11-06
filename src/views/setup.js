@@ -197,6 +197,8 @@ function Agenda({ w, save }) {
   const agenda = preview != null ? durationAgenda(preview, saved) : saved;
   const picked = preview != null ? preview : durationOf(saved);
   const update = (key, patch) => save({ agenda: agenda.map((a) => (a.key === key ? { ...a, ...patch } : a)) });
+  // Only optional steps (the Warm-Up) can be switched off; every other step always runs.
+  const setOptional = (key, on) => update(key, { enabled: on });
   const total = agenda.filter((a) => a.enabled).reduce((n, a) => n + Number(a.minutes || 0), 0);
   const byKey = Object.fromEntries(STEPS.map((s) => [s.key, s]));
   const days = agendaDays(agenda);
@@ -209,10 +211,10 @@ function Agenda({ w, save }) {
     <div class="stack">
       <div class="duration">
         <div class="duration-head">
-          <div><span class="duration-name">${d ? d.name : 'Custom'}</span> <span class="muted">${d ? `${d.days} ${d.days === 1 ? 'day' : 'days'}` : 'your own step times'}</span></div>
+          <div><span class="duration-name">${d ? d.name : 'Custom'}</span><span class="muted duration-days">${d ? `${d.days} ${d.days === 1 ? 'day' : 'days'}` : 'your own step times'}</span></div>
           <span class="duration-total">${fmtMinutes(total)} of activities</span>
         </div>
-        <p class="muted small">${d ? d.blurb : 'Move the slider to set the length again. It sets every step\'s time and turns off what doesn\'t fit.'}</p>
+        <p class="muted small">${d ? d.blurb : 'Move the slider to set the length again. It sets every step\'s time.'}</p>
         <input type="range" class=${cx('duration-range', !d && 'custom')} min="0" max=${DURATIONS.length - 1} step="1" value=${near}
           aria-label="Workshop length" aria-valuetext=${d ? `${d.name}, ${d.days} days` : 'Custom'}
           style=${{ '--pct': `${(near / (DURATIONS.length - 1)) * 100}%` }}
@@ -225,17 +227,17 @@ function Agenda({ w, save }) {
         </div>
         <p class="muted small">A day is about ${DAY_MINUTES / 60} hours of activities, plus breaks and lunch. You can still change any step below.</p>
       </div>
-      <p class="muted">Turn steps on or off and set how long each runs. Total: <b>${Math.floor(total / 60)}h ${total % 60}m</b></p>
       <ol class="agenda-edit">
         ${agenda.map((a, i) => { const s = byKey[a.key]; const day = days[i];
+          const n = agenda.slice(0, i + 1).filter((x) => x.enabled).length; // steps are numbered as they run
           const newDay = day && day !== days.slice(0, i).filter(Boolean).pop() && Math.max(...days.filter(Boolean)) > 1;
           return html`
           ${newDay && html`<li key=${'day' + day} class="agenda-day">${dayLabel(day)}</li>`}
-          <li key=${a.key} class=${cx('agenda-row', !a.enabled && 'off')}>
-            <input type="checkbox" checked=${a.enabled} onChange=${(e) => update(a.key, { enabled: e.target.checked })} aria-label=${'Include ' + s.title} />
-            <span class="step-num">${i + 1}</span>
-            <div class="grow"><b>${s.title}</b>${s.optional && html` <span class="pill pill-optional">Optional</span>`}${s.phase > BUILT_PHASE && html` <span class="pill pill-soon">Coming in phase ${s.phase}</span>`}${!a.enabled && d && !s.optional && html` <span class="pill pill-hidden">Doesn't fit in ${d.name}</span>`}<div class="muted small">${s.blurb}</div></div>
-            <label class="minutes"><input type="number" min="1" max="240" value=${a.minutes} disabled=${!a.enabled} onChange=${(e) => update(a.key, { minutes: Number(e.target.value) })} /> min</label>
+          <li key=${a.key} class=${cx('agenda-row', !a.enabled && 'agenda-add')}>
+            <span class="step-num">${a.enabled ? n : '–'}</span>
+            <div class="grow"><b>${s.title}</b>${s.optional && html`<span class="pill pill-optional">Optional</span>`}${s.phase > BUILT_PHASE && html`<span class="pill pill-soon">Coming in phase ${s.phase}</span>`}<div class="muted small">${s.blurb}</div>${s.optional && html`<button type="button" role="switch" aria-checked=${a.enabled} aria-label=${'Include ' + s.title} class=${cx('switch', a.enabled && 'on')} onClick=${() => setOptional(a.key, !a.enabled)}>
+              <span class="switch-label">${a.enabled ? 'Included' : 'Include'}</span><span class="switch-track"><i></i></span></button>`}</div>
+            <label class="minutes"><input type="number" min="1" max="999" value=${a.minutes} disabled=${!a.enabled} onInput=${(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 3); if (v !== e.target.value) e.target.value = v; }} onChange=${(e) => update(a.key, { minutes: Number(e.target.value) })} /> min</label>
           </li>`; })}
       </ol>
     </div>`;

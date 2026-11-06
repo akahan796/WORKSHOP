@@ -1,9 +1,9 @@
 // Phase 3 stages: Crazy 8s, sharing them (per-sketch votes), solution sketches,
 // review, and voting on a direction with the Decider.
-import { html, useState, useEffect, useMemo, cx, uid, DECIDER_PURPLE, facilitates } from '../lib.js';
+import { html, useState, useEffect, useMemo, cx, uid, DECIDER_PURPLE, voteColor, facilitates } from '../lib.js';
 import { sketchPrompt } from '../skills.js';
 import { backend } from '../backend/index.js';
-import { Avatar, Empty, AiButton, Modal, useCopy } from './ui.js';
+import { Avatar, Empty, AiButton, Modal, useCopy, VoteTray } from './ui.js';
 import { tallyItems, DECIDER_WEIGHT, canMemberVote, synthCrazy8, synthSketchVotes, synthSolutions, synthComments, aiDecideSolution } from '../ai.js';
 
 export const IMAGE_TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'image/svg+xml': 'svg' };
@@ -68,8 +68,19 @@ function SkillBox({ title, doc, file }) {
     </div>`;
 }
 
-export function Lightbox({ src, caption, onClose }) {
-  return html`<${Modal} title=${caption || 'Sketch'} onClose=${onClose} wide><img class="lightbox-img" src=${src} alt=${caption || ''} /><//>`;
+// `vote` (optional) adds a bar under the picture so a sketch can be voted for from the enlarged view:
+// { me, left, total, mine (my dots here), what, onAdd, onRemove }.
+export function Lightbox({ src, caption, onClose, vote }) {
+  return html`<${Modal} title=${caption || 'Sketch'} onClose=${onClose} wide>
+    <img class=${cx('lightbox-img', vote && 'has-vote')} src=${src} alt=${caption || ''} />
+    ${vote && html`
+      <div class="lightbox-vote">
+        <span class="vdot vdot-sm" style=${{ background: voteColor(vote.me) }}></span>
+        <span class="grow"><b>${vote.left} of ${vote.total}</b> dot${vote.total === 1 ? '' : 's'} left${vote.mine.length > 0 ? html` <span class="muted">· ${vote.mine.length} on this ${vote.what}</span>` : ''}</span>
+        ${vote.mine.length > 0 && html`<button class="btn btn-sm" onClick=${vote.onRemove}>${vote.mine.length > 1 ? 'Remove a dot' : 'Remove my dot'}</button>`}
+        <button class="btn btn-sm btn-primary" disabled=${vote.left < 1} onClick=${vote.onAdd}>Vote for this ${vote.what}</button>
+      </div>`}
+  <//>`;
 }
 
 // Where each of several files goes. A file whose name ends in a slot number ("3.png",
@@ -214,7 +225,7 @@ export const doneStatus = (x, n) => (x?.ready ? html`<span class="pill pill-live
 function Dots({ votes, me, show, authors }) {
   const list = show ? votes : votes.filter((v) => v.member_id === me?.id);
   return html`<div class="dots" onClick=${(e) => e.stopPropagation()}>
-    ${list.map((v) => html`<button key=${v.id} class="dot" style=${{ background: authors[v.member_id]?.is_decider ? DECIDER_PURPLE : '#141414' }}
+    ${list.map((v) => html`<button key=${v.id} class="dot" style=${{ background: voteColor(authors[v.member_id]) }}
       title=${(authors[v.member_id]?.name || '') + (v.member_id === me?.id ? ' (click to remove)' : '')} onClick=${() => v.member_id === me?.id && backend.deleteVote(v.id)}></button>`)}
     ${show && votes.length > 0 && html`<span class="small muted">${votes.length}</span>`}
   </div>`;
@@ -222,14 +233,14 @@ function Dots({ votes, me, show, authors }) {
 
 function VoteHeader({ left, dots, canVote, isDecider, decider, what }) {
   return html`<p class="muted small">
-    ${canVote ? html`You have <b>${left}</b> of ${dots} votes left. Click ${what} to add a dot; click your dot to take it back. Voting for your own is fine.` : 'Participants are voting.'}
+    ${canVote ? html`Drag your dots onto ${what} you like (or click it). Click a dot you placed to take it back. Voting for your own is fine.` : 'Participants are voting.'}
     ${isDecider ? html` <b style=${{ color: DECIDER_PURPLE }}>You're the Decider: your dots are purple and count ${DECIDER_WEIGHT}×.</b>` : decider ? html` Purple dots are ${decider.name}'s (the Decider), counting ${DECIDER_WEIGHT}×.` : ''}
   </p>`;
 }
 
 function OrganizerVoteTools({ w, dotsKey, revealKey, dots, revealed, round, votes, aiLabel, aiRun }) {
   return html`<div class="row">
-    <label class="minutes">Votes each <input type="number" min="1" max="10" value=${dots} onChange=${(e) => backend.setStepState(w.id, { [dotsKey]: Number(e.target.value) })} /></label>
+    <label class="minutes">Dots each <input type="number" min="1" max="10" value=${dots} onChange=${(e) => backend.setStepState(w.id, { [dotsKey]: Number(e.target.value) })} /></label>
     ${aiRun && html`<${AiButton} label=${aiLabel} run=${aiRun} />`}
     <label class="toggle"><input type="checkbox" checked=${revealed} onChange=${(e) => backend.setStepState(w.id, { [revealKey]: e.target.checked })} /> Reveal votes</label>
     <button class="btn btn-sm btn-ghost" disabled=${!votes.length} onClick=${() => confirm('Clear every vote in this round?') && backend.deleteVotes(w.id, round)}>Clear votes</button>
@@ -290,7 +301,7 @@ export function Crazy8Stage({ w, data, me, isOrganizer }) {
 function SheetGrid({ sheet, urls, votes, me, show, authors, canVote, onVote, onOpen }) {
   return html`<div class="crazy8-grid view">
     ${pad8(sheet.cells).map((c, i) => html`
-      <div key=${i} class=${cx('cell-view', canVote && 'can-vote')} onClick=${() => canVote && (c.file_path || c.caption) && onVote(c)}>
+      <div key=${i} class=${cx('cell-view', canVote && 'can-vote')} data-vote-target=${canVote && (c.file_path || c.caption) ? c.id : null} onClick=${() => canVote && (c.file_path || c.caption) && onVote(c)}>
         <div class="cell-img">${c.file_path ? html`<img src=${urls[c.file_path]} alt=${c.caption} onClick=${(e) => { e.stopPropagation(); onOpen(c); }} />` : html`<span class="muted small">${i + 1}</span>`}</div>
         <div class="cell-cap small">${c.caption}</div>
         <${Dots} votes=${votes.filter((v) => v.target_id === c.id)} me=${me} show=${show} authors=${authors} />
@@ -319,6 +330,7 @@ export function Share8Stage({ w, data, me, isOrganizer }) {
   const ranked = tallyItems(cells, votes, data.members).filter((r) => r.dots > 0);
 
   const vote = (c) => backend.addVotes([{ workshop_id: w.id, member_id: me.id, target_id: c.id, round: 'crazy8' }]);
+  const dropVote = (id) => canVote && backend.addVotes([{ workshop_id: w.id, member_id: me.id, target_id: id, round: 'crazy8' }]);
   const spotlight = (memberId) => (isOrganizer ? backend.setStepState(w.id, { share8_member: memberId }) : setLocal(memberId));
 
   if (!sheets.length) return html`<${Empty} title="No Crazy 8s yet">Sheets appear here once people add sketches.<//>`;
@@ -333,6 +345,7 @@ export function Share8Stage({ w, data, me, isOrganizer }) {
             const b = await synthSketchVotes(w, 'crazy8', cells.map((c) => ({ id: c.id, text: `${c.caption || 'Untitled sketch'} (by ${authors[c.member_id]?.name})`, image_paths: c.file_path ? [c.file_path] : [] })), data.members, dots);
             return `${b.length} AI ballots cast.`; } : null} />`}
       </div>
+      ${canMemberVote(w, me) && html`<${VoteTray} me=${me} total=${dots} left=${left} what="a sketch" onDrop=${dropVote} onClear=${() => backend.deleteVotes(w.id, 'crazy8', [me.id])} />`}
       <div class="share-layout">
         <div class="grow">${spot && html`<${SheetGrid} sheet=${spot} urls=${urls} votes=${votes} me=${me} show=${revealed || isOrganizer} authors=${authors} canVote=${canVote} onVote=${vote} onOpen=${(c) => setBox(c)} />`}</div>
         ${(revealed || isOrganizer) && html`
@@ -352,7 +365,9 @@ export function Share8Stage({ w, data, me, isOrganizer }) {
             <span class="small">${authors[x.member_id]?.name}</span>
           </button>`)}
       </div>
-      ${box && html`<${Lightbox} src=${urls[box.file_path]} caption=${box.caption} onClose=${() => setBox(null)} />`}
+      ${box && html`<${Lightbox} src=${urls[box.file_path]} caption=${box.caption} onClose=${() => setBox(null)}
+        vote=${canMemberVote(w, me) && { me, left, total: dots, what: 'sketch', mine: mine.filter((v) => v.target_id === box.id),
+          onAdd: () => left > 0 && vote(box), onRemove: () => { const v = mine.filter((x) => x.target_id === box.id).pop(); v && backend.deleteVote(v.id); } }} />`}
     </div>`;
 }
 
@@ -537,11 +552,13 @@ export function VoteSolutionStage({ w, data, me, isOrganizer }) {
             const b = await synthSketchVotes(w, voteRound, solutions.map((x) => ({ id: x.id, text: `"${x.title}" by ${authors[x.member_id]?.name}: ${x.summary} Frames: ${x.cells.map((c) => c.caption).join(' → ')}`, image_paths: x.cells.map((c) => c.file_path).filter(Boolean) })), data.members, dots);
             return `${b.length} AI ballots cast.`; } : null} />`}
       </div>
+      ${canVote && solutions.length > 0 && html`<${VoteTray} me=${me} total=${dots} left=${left} what="a sketch" onClear=${() => backend.deleteVotes(w.id, voteRound, [me.id])}
+        onDrop=${(id) => left > 0 && backend.addVotes([{ workshop_id: w.id, member_id: me.id, target_id: id, round: voteRound }])} />`}
       ${!solutions.length ? html`<${Empty} title="No solution sketches to vote on" />` : html`
         <div class="vote-layout">
           <div class="solution-grid grow">
             ${solutions.map((x) => html`
-              <div key=${x.id} class=${cx('vote-wrap', canVote && left > 0 && 'can-vote', finalSheet?.id === x.id && 'is-final')}
+              <div key=${x.id} class=${cx('vote-wrap', canVote && left > 0 && 'can-vote', finalSheet?.id === x.id && 'is-final')} data-vote-target=${canVote && left > 0 ? x.id : null}
                 onClick=${() => canVote && left > 0 && backend.addVotes([{ workshop_id: w.id, member_id: me.id, target_id: x.id, round: voteRound }])}>
                 <${SolutionCard} x=${x} authors=${authors} urls=${urls} data=${data} onOpen=${setBox} compact>
                   <${Dots} votes=${votes.filter((v) => v.target_id === x.id)} me=${me} show=${showAll} authors=${authors} />
@@ -570,6 +587,12 @@ export function VoteSolutionStage({ w, data, me, isOrganizer }) {
               ${reasons.length > 0 && html`<section class="card"><h4>Reasoning</h4><ul class="comments">${reasons.map((r) => html`<li key=${r.id}><b class="small">${authors[r.member_id]?.name}:</b> <span class="small">${r.text}</span></li>`)}</ul></section>`}`}
           </aside>
         </div>`}
-      ${box && html`<${Lightbox} src=${urls[box.file_path]} caption=${box.caption} onClose=${() => setBox(null)} />`}
+      ${box && (() => {
+        const sol = solutions.find((x) => x.cells.some((c) => c.id === box.id));
+        const here = sol ? mine.filter((v) => v.target_id === sol.id) : [];
+        return html`<${Lightbox} src=${urls[box.file_path]} caption=${sol ? `${sol.title || 'Solution'}: ${box.caption || 'frame'}` : box.caption} onClose=${() => setBox(null)}
+          vote=${canVote && sol && { me, left, total: dots, what: 'solution', mine: here,
+            onAdd: () => left > 0 && backend.addVotes([{ workshop_id: w.id, member_id: me.id, target_id: sol.id, round: voteRound }]),
+            onRemove: () => { const v = here[here.length - 1]; v && backend.deleteVote(v.id); } }} />`; })()}
     </div>`;
 }

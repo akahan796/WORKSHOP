@@ -40,17 +40,17 @@ export const STEP_BY_KEY = Object.fromEntries(STEPS.map((s) => [s.key, s]));
 
 // Workshop lengths, picked with the slider at the top of the Agenda & Time tab. A day is
 // about 5 hours of activities (the rest is breaks, lunch and changeovers). Each
-// length sets every step's minutes; 0 drops the step because it doesn't fit.
+// length sets every step's minutes; no length ever removes a step, it only shortens them.
 // Crazy 8s is always 8 minutes: one per sketch.
 export const DAY_MINUTES = 300;
 export const DURATIONS = [
-  { key: 'focused', name: 'Focused', days: 1.5, blurb: 'Every step, at a brisk pace. A good fit when the problem is already well understood.' },
-  { key: 'standard', name: 'Standard', days: 2, blurb: 'The full workshop with room to discuss: deeper research share-outs and more time to sketch.' },
-  { key: 'extended', name: 'Extended', days: 2.5, blurb: 'More time for Q&A, sharing and the user flow, for bigger groups or a fuzzier problem.' },
+  { key: 'mini', name: 'Mini', days: 1.5, blurb: 'Every step, at a brisk pace. A good fit when the problem is already well understood.' },
+  { key: 'focused', name: 'Focused', days: 2, blurb: 'The full workshop with a little less discussion: tighter research share-outs and sketching.' },
+  { key: 'standard', name: 'Standard', days: 2.5, blurb: 'The full workshop with room to discuss: time for Q&A, sharing and the user flow.' },
   { key: 'immersive', name: 'Immersive', days: 3, blurb: 'The deep dive: long research and sketching sessions, and a thorough design review at the end.' },
 ];
 const DURATION_MINUTES = {
-  //              focused standard extended immersive
+  //              mini focused standard immersive
   intro:         [15, 20, 30, 30],
   warmup:        [10, 10, 15, 15],
   research:      [60, 90, 120, 150],
@@ -66,15 +66,14 @@ const DURATION_MINUTES = {
   prototype:     [45, 60, 75, 75],
   design_review: [45, 60, 75, 90],
 };
-export const DEFAULT_DURATION = 1; // Standard
+export const DEFAULT_DURATION = 2; // Standard (2.5 days)
 
-// The agenda for a length: every step, the ones that don't fit switched off
-// (they keep their usual minutes for when they're switched back on). Optional
-// steps stay on or off as they are in `current`.
+// The agenda for a length: every step with that length's minutes. A shorter length
+// never removes a step. Optional steps stay on or off as they are in `current`.
 export function durationAgenda(i, current = []) {
   return STEPS.map((s) => {
     const m = DURATION_MINUTES[s.key][i];
-    const enabled = s.optional ? !!current.find((a) => a.key === s.key)?.enabled : m > 0;
+    const enabled = s.optional ? !!current.find((a) => a.key === s.key)?.enabled : true;
     return { key: s.key, enabled, minutes: m || s.minutes };
   });
 }
@@ -116,7 +115,8 @@ export function normalizeAgenda(saved) {
     const prev = i ? list.findIndex((a) => a.key === STEPS[i - 1].key) : -1;
     list.splice(prev + 1, 0, { key: s.key, enabled: !s.optional, minutes: s.minutes });
   });
-  return list;
+  // Every step runs except the optional ones (Warm-Up), which are the only steps that can be switched off.
+  return list.map((a) => (STEP_BY_KEY[a.key].optional ? a : { ...a, enabled: true }));
 }
 
 // The enabled steps in order, each merged with its definition.
