@@ -529,45 +529,9 @@ textarea.mono { font-family: Menlo, Consolas, monospace; font-size: 12px; line-h
 .idea-busy { position: absolute; transform: translate(-50%, -50%); background: var(--brand); color: #fff; font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 999px; pointer-events: none; animation: idea-pulse 1.2s ease-in-out infinite; }
 @keyframes idea-pulse { 50% { opacity: .55; } }
 
-/* Agenda: linked steps drawn as one connected card. Lines run through the checkboxes:
-   a step's stem leaves its checkbox, and each dependent's elbow ends at its own checkbox.
-   The checkbox centre sits 23px below the row top; columns are 28px wide. :root beats refined.css. */
-:root .agenda-row { padding-top: 14px; padding-bottom: 14px; }
-.gutter { display: flex; flex: none; align-self: stretch; margin: -14px 0; }
-.cb { display: flex; flex-direction: column; align-items: center; padding-top: 15px; }
-.cb input { width: 16px; height: 16px; margin: 0; flex: none; }
-.cb .stem { flex: 1; width: 2px; background: var(--brand); opacity: .7; }
-/* A line that only leads to steps that are off goes grey and dashed (d-top / d-tail / dim). */
-.cb .stem.dim { background: none; border-left: 2px dashed var(--muted); width: 0; opacity: 1; }
-.tree-cell { position: relative; flex: none; width: 28px; }
-.tree-cell::before, .tree-cell::after { content: ''; position: absolute; border: 0 solid var(--brand); opacity: .7; }
-.tree-pass::before { left: 7px; top: 0; bottom: 0; border-left-width: 2px; }
-.tree-mid::before { left: 7px; top: 0; height: 24px; border-left-width: 2px; }
-.tree-mid .tail { position: absolute; left: 7px; top: 24px; bottom: 0; border-left: 2px solid var(--brand); opacity: .7; }
-.tree-mid::after { left: 7px; right: 0; top: 22px; border-top-width: 2px; }
-.tree-last::before { left: 7px; right: 0; top: 0; height: 24px; border-left-width: 2px; border-bottom-width: 2px; border-bottom-left-radius: 8px; }
-/* Only the elbow into a step that's off goes grey and dashed; a line passing by to a later step stays solid. */
-.agenda-row.off .tree-mid::after { border-color: var(--muted); border-top-style: dashed; opacity: 1; }
-.tree-last.d-top::before { border-color: var(--muted); border-left-style: dashed; border-bottom-style: dashed; opacity: 1; }
-.tree-pass.d-top::before, .tree-mid.d-top::before { border-color: var(--muted); border-left-style: dashed; opacity: 1; }
-.tree-mid.d-tail .tail { border-color: var(--muted); border-left-style: dashed; opacity: 1; }
-.agenda-day { position: relative; }
-.gutter-abs { position: absolute; left: 16px; top: 0; bottom: 0; margin: 0; }
-.agenda-link-label { list-style: none; display: flex; align-items: center; gap: 5px; margin: 0; padding: 10px 16px 0; background: #fff; border-top: 1px solid var(--line); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--brand); }
-:root .agenda-row.linked { border-bottom: 0; transition: background .3s; }
-:root .agenda-row.linked.link-last { border-bottom: 1px solid var(--line); }
-.pill-linked { background: var(--brand); color: #fff; }
-@keyframes link-flash { 0% { background: var(--warn-soft); } 100% { } }
-.agenda-row.flash { animation: link-flash 1.4s ease-out; }
-/* Checkbox and step number share a centre line (23px below the row top); the title's top lines up with the checkbox's top. */
-:root .agenda-row .step-num { align-self: flex-start; margin-top: -3px; }
-:root .agenda-row .grow { margin-top: -5px; }
-:root .agenda-edit .agenda-day { padding-left: 84px; } /* the title column of a top-level step, clear of any link lines */
-.gutter-abs { left: 16px; }
-.gutter-abs { z-index: 1; bottom: -1px; } /* over the header's bottom divider, not under it */
 /* An 8px gap between a step's title and each badge (no space character in the markup). */
 :root .agenda-row .grow > .pill { margin-left: 8px; }
-/* Minutes field: no spinner arrows, sized to a three-digit number (up to 240). */
+/* Minutes field: no spinner arrows, sized to a three-digit number (up to 999). */
 :root .agenda-edit .agenda-row .minutes input:not([type=range]) { width: calc(3ch + 24px); padding-left: 8px; padding-right: 8px; text-align: center; -moz-appearance: textfield; appearance: textfield; } /* hugs a 3-digit number */
 .minutes input::-webkit-outer-spin-button, .minutes input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 /* Minutes field: a clear blue state while it's being edited. */
@@ -598,3 +562,15 @@ body.voting-drag [data-vote-target].drop-over { outline-style: solid; background
 .lightbox-vote { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .vdot-sm { width: 24px; height: 24px; border: 2px solid #fff; box-shadow: 0 0 0 1.5px rgba(20,20,20,.5); }
 .vote-clear { margin-left: auto; white-space: nowrap; }
+
+/* Agenda: the optional Warm-Up has an on/off switch beside its title; while it's off the row is dimmed. */
+:root .agenda-row.agenda-add { background: var(--n25); }
+:root .agenda-row.agenda-add .grow b, :root .agenda-row.agenda-add .grow .muted, :root .agenda-row.agenda-add .grow .pill, :root .agenda-row.agenda-add .step-num, :root .agenda-row.agenda-add .minutes { opacity: .55; }
+.switch { display: inline-flex; align-items: center; gap: 8px; margin: 6px 0 0 -4px; border: 0; background: none; padding: 2px 4px; cursor: pointer; font: inherit; color: var(--muted); border-radius: 999px; }
+.switch-label { font-size: 13px; white-space: nowrap; }
+.switch.on .switch-label { color: var(--text); }
+.switch-track { position: relative; width: 36px; height: 20px; border-radius: 999px; background: var(--line-strong); transition: background .15s; flex: none; }
+.switch-track i { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .15s; }
+.switch.on .switch-track { background: var(--brand); }
+.switch.on .switch-track i { transform: translateX(16px); }
+.switch:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
